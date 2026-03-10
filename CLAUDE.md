@@ -59,7 +59,7 @@ npm run db:seed
 npm run dev
 ```
 
-Demo account: `demo@example.com` / `password123`
+Demo account (after seeding): `demo@example.com` / `password123`
 
 ## Tech Stack
 
