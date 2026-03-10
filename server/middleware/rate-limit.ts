@@ -10,6 +10,11 @@ interface RateLimitEntry {
 const store = new Map<string, RateLimitEntry>()
 
 export default defineEventHandler((event) => {
+  // Disabled in test environment to allow integration tests to run without hitting limits
+  if (process.env.RATE_LIMIT_DISABLED === '1') {
+    return
+  }
+
   const path = event.path
 
   if (!AUTH_PATHS.includes(path)) {
