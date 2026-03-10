@@ -9,12 +9,23 @@ interface Task {
   createdAt: string
 }
 
+interface Pagination {
+  page: number
+  limit: number
+  total: number
+  totalPages: number
+}
+
 const tasks = ref<Task[]>([])
 const newTitle = ref('')
 const newDescription = ref('')
 const loading = ref(true)
 const error = ref('')
 const validationError = ref('')
+const currentPage = ref(1)
+const totalPages = ref(1)
+const totalTasks = ref(0)
+const pageSize = 20
 
 function validateTask(title: string, description: string): string | null {
   if (!title.trim()) return 'Title is required'
@@ -23,15 +34,26 @@ function validateTask(title: string, description: string): string | null {
   return null
 }
 
-async function fetchTasks() {
+async function fetchTasks(page = currentPage.value) {
+  loading.value = true
   try {
-    const data = await $fetch('/api/tasks')
+    const data = await $fetch<{ tasks: Task[]; pagination: Pagination }>('/api/tasks', {
+      query: { page, limit: pageSize },
+    })
     tasks.value = data.tasks
+    currentPage.value = data.pagination.page
+    totalPages.value = data.pagination.totalPages
+    totalTasks.value = data.pagination.total
   } catch {
     error.value = 'Failed to load tasks'
   } finally {
     loading.value = false
   }
+}
+
+async function goToPage(page: number) {
+  if (page < 1 || page > totalPages.value) return
+  await fetchTasks(page)
 }
 
 async function addTask() {
@@ -42,13 +64,14 @@ async function addTask() {
     return
   }
   try {
-    const data = await $fetch('/api/tasks', {
+    await $fetch('/api/tasks', {
       method: 'POST',
       body: { title: newTitle.value, description: newDescription.value || undefined },
     })
-    tasks.value.unshift(data.task)
     newTitle.value = ''
     newDescription.value = ''
+    // Refresh first page to show the new task
+    await fetchTasks(1)
   } catch {
     error.value = 'Failed to create task'
   }
@@ -56,7 +79,7 @@ async function addTask() {
 
 async function toggleTask(task: Task) {
   try {
-    const data = await $fetch(`/api/tasks/${task.id}`, {
+    const data = await $fetch<{ task: Task }>(`/api/tasks/${task.id}`, {
       method: 'PUT',
       body: { completed: !task.completed },
     })
@@ -71,11 +94,20 @@ async function deleteTask(id: number) {
   if (!confirm('Delete this task? This cannot be undone.')) return
   try {
     await $fetch(`/api/tasks/${id}`, { method: 'DELETE' })
-    tasks.value = tasks.value.filter((t) => t.id !== id)
+    // Refresh current page; if it becomes empty go to previous
+    const page = tasks.value.length === 1 && currentPage.value > 1 ? currentPage.value - 1 : currentPage.value
+    await fetchTasks(page)
   } catch {
     error.value = 'Failed to delete task'
   }
 }
+
+const showingFrom = computed(() => {
+  if (totalTasks.value === 0) return 0
+  return (currentPage.value - 1) * pageSize + 1
+})
+
+const showingTo = computed(() => Math.min(currentPage.value * pageSize, totalTasks.value))
 
 onMounted(fetchTasks)
 </script>
@@ -136,12 +168,16 @@ onMounted(fetchTasks)
 
     <div v-if="loading" class="mt-8 text-center text-gray-500">Loading...</div>
 
-    <div v-else-if="tasks.length === 0" class="mt-8 text-center text-gray-500">
+    <div v-else-if="tasks.length === 0 && totalTasks === 0" class="mt-8 text-center text-gray-500">
       No tasks yet. Create your first one above.
     </div>
 
     <div v-else aria-live="polite" aria-label="Task list">
-      <ul class="mt-6 space-y-2">
+      <div class="mt-6 flex items-center justify-between text-sm text-gray-500">
+        <span>Showing {{ showingFrom }}–{{ showingTo }} of {{ totalTasks }} task{{ totalTasks !== 1 ? 's' : '' }}</span>
+      </div>
+
+      <ul class="mt-2 space-y-2">
         <li
           v-for="task in tasks"
           :key="task.id"
@@ -175,6 +211,26 @@ onMounted(fetchTasks)
           </button>
         </li>
       </ul>
+
+      <div v-if="totalPages > 1" class="mt-4 flex items-center justify-center gap-2">
+        <button
+          type="button"
+          :disabled="currentPage <= 1"
+          class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-gray-50"
+          @click="goToPage(currentPage - 1)"
+        >
+          Previous
+        </button>
+        <span class="text-sm text-gray-600">Page {{ currentPage }} of {{ totalPages }}</span>
+        <button
+          type="button"
+          :disabled="currentPage >= totalPages"
+          class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-gray-50"
+          @click="goToPage(currentPage + 1)"
+        >
+          Next
+        </button>
+      </div>
     </div>
   </div>
 </template>
