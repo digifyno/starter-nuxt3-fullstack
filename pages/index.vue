@@ -35,24 +35,24 @@ const { isAuthenticated } = useAuth()
     </div>
 
     <div class="mt-16 grid gap-6 sm:grid-cols-3">
-      <div class="rounded-xl border border-gray-200 bg-white p-6 text-left">
-        <h3 class="font-semibold text-gray-900">Server-Side Rendering</h3>
+      <article class="rounded-xl border border-gray-200 bg-white p-6 text-left">
+        <h2 class="font-semibold text-gray-900">Server-Side Rendering</h2>
         <p class="mt-2 text-sm text-gray-600">
           Nuxt 3 provides hybrid rendering with SSR, SSG, and client-side navigation out of the box.
         </p>
-      </div>
-      <div class="rounded-xl border border-gray-200 bg-white p-6 text-left">
-        <h3 class="font-semibold text-gray-900">Database with Prisma</h3>
+      </article>
+      <article class="rounded-xl border border-gray-200 bg-white p-6 text-left">
+        <h2 class="font-semibold text-gray-900">Database with Prisma</h2>
         <p class="mt-2 text-sm text-gray-600">
           Type-safe database access with Prisma ORM. SQLite for development, easily swap to PostgreSQL.
         </p>
-      </div>
-      <div class="rounded-xl border border-gray-200 bg-white p-6 text-left">
-        <h3 class="font-semibold text-gray-900">JWT Authentication</h3>
+      </article>
+      <article class="rounded-xl border border-gray-200 bg-white p-6 text-left">
+        <h2 class="font-semibold text-gray-900">JWT Authentication</h2>
         <p class="mt-2 text-sm text-gray-600">
           Secure authentication with JWT tokens, password hashing, and route middleware protection.
         </p>
-      </div>
+      </article>
     </div>
   </div>
 </template>

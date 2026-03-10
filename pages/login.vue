@@ -33,8 +33,18 @@ async function handleLogin() {
       <NuxtLink to="/register" class="text-primary-600 hover:text-primary-700">Register</NuxtLink>
     </p>
 
-    <form class="mt-6 space-y-4" @submit.prevent="handleLogin">
-      <div v-if="error" class="rounded-md bg-red-50 p-3 text-sm text-red-700">
+    <form
+      class="mt-6 space-y-4"
+      :aria-describedby="error ? 'login-error' : undefined"
+      @submit.prevent="handleLogin"
+    >
+      <div
+        v-if="error"
+        id="login-error"
+        role="alert"
+        aria-live="polite"
+        class="rounded-md bg-red-50 p-3 text-sm text-red-700"
+      >
         {{ error }}
       </div>
 
@@ -45,9 +55,10 @@ async function handleLogin() {
           v-model="email"
           type="email"
           required
+          autocomplete="email"
           class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
           placeholder="you@example.com"
-        />
+        >
       </div>
 
       <div>
@@ -57,9 +68,10 @@ async function handleLogin() {
           v-model="password"
           type="password"
           required
+          autocomplete="current-password"
           class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
           placeholder="Your password"
-        />
+        >
       </div>
 
       <button
