@@ -18,8 +18,7 @@ async function handleRegister() {
     await register(email.value, name.value, password.value)
     navigateTo('/tasks')
   } catch (e: unknown) {
-    const fetchError = e as { data?: { message?: string }; statusMessage?: string }
-    error.value = fetchError.data?.message || fetchError.statusMessage || 'Registration failed'
+    error.value = e instanceof Error ? e.message : 'Registration failed'
   } finally {
     loading.value = false
   }

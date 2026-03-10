@@ -17,8 +17,7 @@ async function handleLogin() {
     await login(email.value, password.value)
     navigateTo('/tasks')
   } catch (e: unknown) {
-    const fetchError = e as { data?: { message?: string }; statusMessage?: string }
-    error.value = fetchError.data?.message || fetchError.statusMessage || 'Login failed'
+    error.value = e instanceof Error ? e.message : 'Login failed'
   } finally {
     loading.value = false
   }
