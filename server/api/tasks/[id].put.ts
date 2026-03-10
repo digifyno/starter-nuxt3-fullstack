@@ -9,7 +9,7 @@ const updateTaskSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { userId } = requireAuth(event)
+  const { userId } = await requireAuth(event)
   const id = Number(getRouterParam(event, 'id'))
 
   if (isNaN(id)) {

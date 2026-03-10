@@ -45,9 +45,12 @@ export function useAuth() {
   }
 
   async function logout() {
-    await $fetch('/api/auth/logout', { method: 'POST' })
-    authState.user = null
-    navigateTo('/login')
+    try {
+      await $fetch('/api/auth/logout', { method: 'POST' })
+    } finally {
+      authState.user = null
+      navigateTo('/login')
+    }
   }
 
   return {

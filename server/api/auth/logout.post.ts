@@ -1,4 +1,20 @@
-export default defineEventHandler((event) => {
+import prisma from '~/server/utils/prisma'
+import { verifyToken } from '~/server/utils/jwt'
+
+export default defineEventHandler(async (event) => {
+  const token = getCookie(event, 'auth_token')
+  if (token) {
+    try {
+      const payload = verifyToken(token)
+      if (payload?.jti && payload?.exp) {
+        await prisma.tokenBlocklist.create({
+          data: { jti: payload.jti, expiresAt: new Date(payload.exp * 1000) },
+        })
+      }
+    } catch {
+      // ignore invalid tokens
+    }
+  }
   deleteCookie(event, 'auth_token', { path: '/' })
   return { success: true }
 })

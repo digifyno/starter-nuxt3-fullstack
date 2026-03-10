@@ -2,7 +2,7 @@ import prisma from '~/server/utils/prisma'
 import { requireAuth } from '~/server/utils/jwt'
 
 export default defineEventHandler(async (event) => {
-  const { userId } = requireAuth(event)
+  const { userId } = await requireAuth(event)
 
   const user = await prisma.user.findUnique({
     where: { id: userId },

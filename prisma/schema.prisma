@@ -29,3 +29,12 @@ model Task {
 
   @@index([userId])
 }
+
+model TokenBlocklist {
+  id        Int      @id @default(autoincrement())
+  jti       String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
+}

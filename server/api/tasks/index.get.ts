@@ -2,7 +2,7 @@ import prisma from '~/server/utils/prisma'
 import { requireAuth } from '~/server/utils/jwt'
 
 export default defineEventHandler(async (event) => {
-  const { userId } = requireAuth(event)
+  const { userId } = await requireAuth(event)
 
   const query = getQuery(event)
   const page = Math.max(1, Number(query.page) || 1)

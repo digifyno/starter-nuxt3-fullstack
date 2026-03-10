@@ -8,7 +8,7 @@ const createTaskSchema = z.object({
 })
 
 export default defineEventHandler(async (event) => {
-  const { userId } = requireAuth(event)
+  const { userId } = await requireAuth(event)
   const body = await readBody(event)
   const parsed = createTaskSchema.safeParse(body)
 

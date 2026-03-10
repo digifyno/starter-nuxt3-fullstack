@@ -4,6 +4,10 @@ export default defineEventHandler(async () => {
   let dbStatus = 'ok'
   try {
     await prisma.$queryRaw`SELECT 1`
+    // Prune expired token blocklist entries
+    await prisma.tokenBlocklist.deleteMany({
+      where: { expiresAt: { lt: new Date() } },
+    })
   } catch {
     dbStatus = 'error'
   }

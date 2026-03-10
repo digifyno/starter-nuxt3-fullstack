@@ -20,6 +20,7 @@ describe('Auth API', async () => {
   })
 
   beforeEach(async () => {
+    await prisma.tokenBlocklist.deleteMany()
     await prisma.task.deleteMany()
     await prisma.user.deleteMany()
   })
@@ -127,6 +128,34 @@ describe('Auth API', async () => {
       const setCookie = res.headers.get('set-cookie') ?? ''
       // Cookie should be cleared: empty value or Max-Age=0
       expect(setCookie).toMatch(/auth_token=($|;|,)/)
+    })
+
+    it('rejects protected requests after logout using the old token', async () => {
+      await register('revoke@test.com')
+      const cookie = await loginGetCookie('revoke@test.com')
+
+      // Verify token works before logout
+      const before = await $fetch<{ user: { email: string } }>('/api/auth/me', {
+        headers: { cookie: `auth_token=${cookie}` },
+      })
+      expect(before.user.email).toBe('revoke@test.com')
+
+      // Logout (server adds token to blocklist)
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { cookie: `auth_token=${cookie}` },
+      })
+
+      // Old token should now be rejected
+      const err = await $fetch('/api/auth/me', {
+        headers: { cookie: `auth_token=${cookie}` },
+      }).catch((e) => e)
+      expect(err.response?.status).toBe(401)
+    })
+
+    it('logout succeeds when cookie is missing', async () => {
+      const res = await fetch('/api/auth/logout', { method: 'POST' })
+      expect(res.status).toBe(200)
     })
   })
 })
