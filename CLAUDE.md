@@ -14,18 +14,25 @@
 │   ├── register.vue          # Registration page
 │   └── tasks.vue             # Task management (protected)
 ├── prisma/
-│   ├── schema.prisma         # Database schema
+│   ├── schema.prisma         # Database schema (Task has @@index([userId]))
 │   └── seed.ts               # Seed data
 ├── server/
 │   ├── api/
 │   │   ├── health.get.ts     # Health check endpoint
 │   │   ├── auth/             # Authentication endpoints
-│   │   └── tasks/            # CRUD task endpoints
+│   │   └── tasks/            # CRUD task endpoints (GET supports pagination)
+│   ├── middleware/
+│   │   └── rate-limit.ts     # Rate limiting for auth endpoints (10 req/min/IP)
+│   ├── plugins/
+│   │   └── startup-check.ts  # Validates JWT_SECRET is set on startup
 │   └── utils/
 │       ├── prisma.ts         # Prisma client singleton
 │       └── jwt.ts            # JWT utilities
 ├── tests/                    # Vitest test files
-│   └── health.test.ts        # Smoke test
+│   ├── global-setup.ts       # Global test setup (isolated test DB)
+│   ├── health.test.ts        # Health endpoint smoke test
+│   ├── auth.test.ts          # Auth integration tests (register, login, me, logout)
+│   └── tasks.test.ts         # Task CRUD integration tests
 ├── eslint.config.mjs         # ESLint flat config (via @nuxt/eslint)
 ├── vitest.config.ts          # Vitest configuration
 ├── nuxt.config.ts            # Nuxt configuration
@@ -81,14 +88,41 @@ Demo account (after seeding): `demo@example.com` / `password123`
 | POST | `/api/auth/login` | No | Login |
 | GET | `/api/auth/me` | Yes | Get current user |
 | POST | `/api/auth/logout` | No | Logout (clears cookie) |
-| GET | `/api/tasks` | Yes | List user's tasks |
+| GET | `/api/tasks` | Yes | List user's tasks (paginated) |
 | POST | `/api/tasks` | Yes | Create a task |
 | PUT | `/api/tasks/:id` | Yes | Update a task |
 | DELETE | `/api/tasks/:id` | Yes | Delete a task |
 
+### Task List Pagination
+
+`GET /api/tasks` accepts optional query parameters and returns a paginated response:
+
+```
+GET /api/tasks?page=1&limit=20
+```
+
+Response shape:
+```json
+{
+  "tasks": [...],
+  "pagination": { "page": 1, "limit": 20, "total": 42, "totalPages": 3 }
+}
+```
+
+Defaults: `page=1`, `limit=20`. Maximum `limit` is 100.
+
 ## Authentication
 
 JWT-based auth with httpOnly cookies. The `auth` middleware on the `/tasks` page checks for a valid token before allowing access.
+
+`JWT_SECRET` **must** be set as an environment variable — the server plugin (`server/plugins/startup-check.ts`) throws on startup if it is missing. There is no insecure fallback.
+
+## Security
+
+- **CSP & security headers** — applied globally via `routeRules` in `nuxt.config.ts`:
+  - `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
+- **Rate limiting** — `server/middleware/rate-limit.ts` enforces 10 requests/60s per IP on `/api/auth/login` and `/api/auth/register`. Returns `429 Too Many Requests` with a `Retry-After` header. Set `RATE_LIMIT_DISABLED=1` to bypass in tests.
+- **JWT secret required** — enforced at startup; the server refuses to start without `JWT_SECRET`.
 
 ## Conventions
 
@@ -102,6 +136,6 @@ JWT-based auth with httpOnly cookies. The `auth` middleware on the `/tasks` page
 
 Build output is in `.output/`. For production:
 1. Set `DATABASE_URL` to your PostgreSQL connection string
-2. Set `JWT_SECRET` to a secure random value
+2. Set `JWT_SECRET` to a secure random value (required — server will not start without it)
 3. Run `npx prisma migrate deploy` then `npm run build`
 4. Start with `node .output/server/index.mjs`
