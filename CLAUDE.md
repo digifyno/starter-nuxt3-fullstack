@@ -24,6 +24,10 @@
 │   └── utils/
 │       ├── prisma.ts         # Prisma client singleton
 │       └── jwt.ts            # JWT utilities
+├── tests/                    # Vitest test files
+│   └── health.test.ts        # Smoke test
+├── eslint.config.mjs         # ESLint flat config (via @nuxt/eslint)
+├── vitest.config.ts          # Vitest configuration
 ├── nuxt.config.ts            # Nuxt configuration
 └── package.json
 ```
@@ -39,6 +43,10 @@ npm run dev                   # Start dev server (http://localhost:3000)
 npm run build                 # Build for production
 npm run preview               # Preview production build
 npm run typecheck             # Run type checking
+npm run lint                  # Lint with ESLint
+npm run lint:fix              # Auto-fix ESLint issues
+npm run format                # Format with Prettier
+npm test                      # Run tests with Vitest
 ```
 
 ## Development Setup
@@ -60,6 +68,9 @@ Demo account: `demo@example.com` / `password123`
 - **Prisma** — Type-safe ORM with SQLite (swap to PostgreSQL for production)
 - **TypeScript** — Full type safety throughout
 - **Zod** — Request validation on server API routes
+- **ESLint** — Code linting via `@nuxt/eslint` (flat config)
+- **Prettier** — Code formatting
+- **Vitest** — Unit/integration testing via `@nuxt/test-utils`
 
 ## API Endpoints
 
