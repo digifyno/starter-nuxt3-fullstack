@@ -23,6 +23,7 @@ describe('Auth API', async () => {
     await prisma.tokenBlocklist.deleteMany()
     await prisma.task.deleteMany()
     await prisma.user.deleteMany()
+    await prisma.loginAttempt.deleteMany()
   })
 
   async function register(email: string, password = 'password123', name = 'Test User') {
@@ -97,6 +98,92 @@ describe('Auth API', async () => {
         body: { email: 'unknown@test.com', password: 'password123' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
+    })
+
+    describe('account lockout', () => {
+      it('locks account after 5 failed attempts and returns 429 with Retry-After', async () => {
+        await register('lockout@test.com')
+
+        // 5 failed attempts
+        for (let i = 0; i < 5; i++) {
+          await $fetch('/api/auth/login', {
+            method: 'POST',
+            body: { email: 'lockout@test.com', password: 'wrongpass' },
+          }).catch(() => {})
+        }
+
+        // 6th attempt should return 429
+        const err = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'lockout@test.com', password: 'wrongpass' }),
+        })
+        expect(err.status).toBe(429)
+        expect(err.headers.get('retry-after')).toBeTruthy()
+      })
+
+      it('successful login resets failed attempt counter', async () => {
+        await register('reset@test.com')
+
+        // 4 failed attempts (just below lockout threshold)
+        for (let i = 0; i < 4; i++) {
+          await $fetch('/api/auth/login', {
+            method: 'POST',
+            body: { email: 'reset@test.com', password: 'wrongpass' },
+          }).catch(() => {})
+        }
+
+        // Successful login resets counter
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'reset@test.com', password: 'password123' }),
+        })
+        expect(res.status).toBe(200)
+
+        // Counter is reset: 4 more failed attempts should NOT trigger lockout
+        for (let i = 0; i < 4; i++) {
+          await $fetch('/api/auth/login', {
+            method: 'POST',
+            body: { email: 'reset@test.com', password: 'wrongpass' },
+          }).catch(() => {})
+        }
+
+        // 5th attempt after reset: still below threshold (only 4 new failures), should get 401
+        const afterReset = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'reset@test.com', password: 'wrongpass' }),
+        })
+        expect(afterReset.status).toBe(401)
+      })
+
+      it('allows login after lockout period expires', async () => {
+        await register('expired@test.com')
+
+        // Directly set an expired lockout in the DB
+        await prisma.loginAttempt.upsert({
+          where: { email: 'expired@test.com' },
+          create: {
+            email: 'expired@test.com',
+            failedCount: 5,
+            lockedUntil: new Date(Date.now() - 1000), // 1 second in the past
+            lastAttemptAt: new Date(),
+          },
+          update: {
+            failedCount: 5,
+            lockedUntil: new Date(Date.now() - 1000),
+          },
+        })
+
+        // Login should succeed (lockout has expired)
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email: 'expired@test.com', password: 'password123' }),
+        })
+        expect(res.status).toBe(200)
+      })
     })
   })
 
