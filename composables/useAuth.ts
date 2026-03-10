@@ -6,12 +6,10 @@ interface User {
 
 interface AuthState {
   user: User | null
-  token: string | null
 }
 
 const authState = reactive<AuthState>({
   user: null,
-  token: null,
 })
 
 export function useAuth() {
@@ -24,7 +22,6 @@ export function useAuth() {
       return data.user
     } catch {
       authState.user = null
-      authState.token = null
       return null
     }
   }
@@ -35,7 +32,6 @@ export function useAuth() {
       body: { email, password },
     })
     authState.user = data.user
-    authState.token = data.token
     return data
   }
 
@@ -45,14 +41,12 @@ export function useAuth() {
       body: { email, name, password },
     })
     authState.user = data.user
-    authState.token = data.token
     return data
   }
 
   async function logout() {
     await $fetch('/api/auth/logout', { method: 'POST' })
     authState.user = null
-    authState.token = null
     navigateTo('/login')
   }
 

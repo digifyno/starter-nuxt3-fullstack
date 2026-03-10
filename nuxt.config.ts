@@ -9,7 +9,6 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [
-      // @ts-expect-error - Tailwind CSS 4 Vite plugin
       (await import('@tailwindcss/vite')).default(),
     ],
   },

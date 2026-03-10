@@ -14,6 +14,14 @@ const newTitle = ref('')
 const newDescription = ref('')
 const loading = ref(true)
 const error = ref('')
+const validationError = ref('')
+
+function validateTask(title: string, description: string): string | null {
+  if (!title.trim()) return 'Title is required'
+  if (title.length > 200) return 'Title must be 200 characters or less'
+  if (description.length > 1000) return 'Description must be 1000 characters or less'
+  return null
+}
 
 async function fetchTasks() {
   try {
@@ -27,7 +35,12 @@ async function fetchTasks() {
 }
 
 async function addTask() {
-  if (!newTitle.value.trim()) return
+  validationError.value = ''
+  const err = validateTask(newTitle.value, newDescription.value)
+  if (err) {
+    validationError.value = err
+    return
+  }
   try {
     const data = await $fetch('/api/tasks', {
       method: 'POST',
@@ -79,19 +92,30 @@ onMounted(fetchTasks)
           v-model="newTitle"
           type="text"
           required
+          maxlength="200"
           class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
           placeholder="Task title"
         >
       </div>
       <div>
         <label for="new-task-description" class="block text-sm font-medium text-gray-700">Description (optional)</label>
-        <input
+        <textarea
           id="new-task-description"
           v-model="newDescription"
-          type="text"
-          class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          maxlength="1000"
+          rows="3"
+          class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none resize-y"
           placeholder="Description (optional)"
-        >
+        />
+        <p class="mt-1 text-xs text-gray-400 text-right">{{ 1000 - (newDescription?.length ?? 0) }} characters remaining</p>
+      </div>
+      <div
+        v-if="validationError"
+        role="alert"
+        aria-live="polite"
+        class="rounded-md bg-red-50 p-3 text-sm text-red-700"
+      >
+        {{ validationError }}
       </div>
       <button
         type="submit"
