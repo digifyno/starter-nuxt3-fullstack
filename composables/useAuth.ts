@@ -8,20 +8,18 @@ interface AuthState {
   user: User | null
 }
 
-const authState = reactive<AuthState>({
-  user: null,
-})
-
 export function useAuth() {
-  const isAuthenticated = computed(() => !!authState.user)
+  const authState = useState<AuthState>('auth', () => ({ user: null }))
+
+  const isAuthenticated = computed(() => !!authState.value.user)
 
   async function fetchUser() {
     try {
       const data = await $fetch('/api/auth/me')
-      authState.user = data.user
+      authState.value.user = data.user
       return data.user
     } catch {
-      authState.user = null
+      authState.value.user = null
       return null
     }
   }
@@ -31,7 +29,7 @@ export function useAuth() {
       method: 'POST',
       body: { email, password },
     })
-    authState.user = data.user
+    authState.value.user = data.user
     return data
   }
 
@@ -40,7 +38,7 @@ export function useAuth() {
       method: 'POST',
       body: { email, name, password },
     })
-    authState.user = data.user
+    authState.value.user = data.user
     return data
   }
 
@@ -48,13 +46,13 @@ export function useAuth() {
     try {
       await $fetch('/api/auth/logout', { method: 'POST' })
     } finally {
-      authState.user = null
+      authState.value.user = null
       navigateTo('/login')
     }
   }
 
   return {
-    user: computed(() => authState.user),
+    user: computed(() => authState.value.user),
     isAuthenticated,
     login,
     register,
