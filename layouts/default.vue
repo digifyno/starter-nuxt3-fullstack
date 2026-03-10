@@ -1,5 +1,15 @@
 <script setup lang="ts">
 const { isAuthenticated, user, logout } = useAuth()
+const isLoggingOut = ref(false)
+
+async function handleLogout() {
+  isLoggingOut.value = true
+  try {
+    await logout()
+  } finally {
+    isLoggingOut.value = false
+  }
+}
 </script>
 
 <template>
@@ -27,10 +37,11 @@ const { isAuthenticated, user, logout } = useAuth()
               <span class="text-sm text-gray-500">{{ user?.name }}</span>
               <button
                 type="button"
-                class="text-sm text-gray-500 hover:text-gray-700"
-                @click="logout"
+                :disabled="isLoggingOut"
+                class="text-sm text-gray-500 hover:text-gray-700 disabled:opacity-50"
+                @click="handleLogout"
               >
-                Logout
+                {{ isLoggingOut ? 'Signing out...' : 'Logout' }}
               </button>
             </template>
             <template v-else>

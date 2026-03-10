@@ -57,6 +57,7 @@ async function goToPage(page: number) {
 }
 
 async function addTask() {
+  error.value = ''
   validationError.value = ''
   const err = validateTask(newTitle.value, newDescription.value)
   if (err) {
@@ -78,6 +79,7 @@ async function addTask() {
 }
 
 async function toggleTask(task: Task) {
+  error.value = ''
   try {
     const data = await $fetch<{ task: Task }>(`/api/tasks/${task.id}`, {
       method: 'PUT',
@@ -91,6 +93,7 @@ async function toggleTask(task: Task) {
 }
 
 async function deleteTask(id: number) {
+  error.value = ''
   if (!confirm('Delete this task? This cannot be undone.')) return
   try {
     await $fetch(`/api/tasks/${id}`, { method: 'DELETE' })
