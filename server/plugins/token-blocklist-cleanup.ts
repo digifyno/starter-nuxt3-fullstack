@@ -1,12 +1,10 @@
 import { defineNitroPlugin } from 'nitropack/runtime'
 import prisma from '../utils/prisma'
+import { cleanupExpiredTokens } from '../utils/token-cleanup'
 
 export default defineNitroPlugin(async () => {
-  const now = new Date()
-  const result = await prisma.tokenBlocklist.deleteMany({
-    where: { expiresAt: { lt: now } },
-  })
-  if (result.count > 0) {
-    console.log(`[token-blocklist-cleanup] Removed ${result.count} expired token(s)`)
+  const count = await cleanupExpiredTokens(prisma)
+  if (count > 0) {
+    console.log(`[token-blocklist-cleanup] Removed ${count} expired token(s)`)
   }
 })

@@ -181,4 +181,43 @@ describe('Tasks API', async () => {
       expect(err.response?.status).toBe(404)
     })
   })
+
+  describe('Task pagination edge cases', () => {
+    it('page=0 defaults to page 1', async () => {
+      const cookie = await createUserAndGetCookie('page0@test.com')
+      const result = await $fetch<{ tasks: unknown[]; pagination: { page: number } }>(
+        '/api/tasks?page=0',
+        { headers: { cookie: `auth_token=${cookie}` } },
+      )
+      expect(result.pagination.page).toBe(1)
+    })
+
+    it('limit=0 defaults to 20', async () => {
+      const cookie = await createUserAndGetCookie('limit0@test.com')
+      const result = await $fetch<{ tasks: unknown[]; pagination: { limit: number } }>(
+        '/api/tasks?limit=0',
+        { headers: { cookie: `auth_token=${cookie}` } },
+      )
+      expect(result.pagination.limit).toBe(20)
+    })
+
+    it('limit=101 is capped at 100', async () => {
+      const cookie = await createUserAndGetCookie('limit101@test.com')
+      const result = await $fetch<{ tasks: unknown[]; pagination: { limit: number } }>(
+        '/api/tasks?limit=101',
+        { headers: { cookie: `auth_token=${cookie}` } },
+      )
+      expect(result.pagination.limit).toBe(100)
+    })
+
+    it('page beyond totalPages returns empty tasks array', async () => {
+      const cookie = await createUserAndGetCookie('beyondpage@test.com')
+      const result = await $fetch<{ tasks: unknown[]; pagination: { total: number } }>(
+        '/api/tasks?page=999',
+        { headers: { cookie: `auth_token=${cookie}` } },
+      )
+      expect(result.tasks).toEqual([])
+      expect(result.pagination.total).toBe(0)
+    })
+  })
 })
