@@ -26,6 +26,8 @@ const currentPage = ref(1)
 const totalPages = ref(1)
 const totalTasks = ref(0)
 const pageSize = 20
+const taskToDelete = ref<number | null>(null)
+const deleting = ref<number | null>(null)
 
 function validateTask(title: string, description: string): string | null {
   if (!title.trim()) return 'Title is required'
@@ -92,16 +94,21 @@ async function toggleTask(task: Task) {
   }
 }
 
-async function deleteTask(id: number) {
+async function confirmDelete() {
+  if (!taskToDelete.value) return
+  const id = taskToDelete.value
+  deleting.value = id
   error.value = ''
-  if (!confirm('Delete this task? This cannot be undone.')) return
   try {
     await $fetch(`/api/tasks/${id}`, { method: 'DELETE' })
+    taskToDelete.value = null
     // Refresh current page; if it becomes empty go to previous
     const page = tasks.value.length === 1 && currentPage.value > 1 ? currentPage.value - 1 : currentPage.value
     await fetchTasks(page)
   } catch {
     error.value = 'Failed to delete task'
+  } finally {
+    deleting.value = null
   }
 }
 
@@ -200,15 +207,20 @@ onMounted(fetchTasks)
             >
               {{ task.title }}
             </p>
-            <p v-if="task.description" class="mt-0.5 text-xs text-gray-500 truncate">
+            <p
+              v-if="task.description"
+              class="mt-0.5 text-xs text-gray-500 truncate"
+              :title="task.description"
+            >
               {{ task.description }}
             </p>
           </div>
           <button
             type="button"
             :aria-label="`Delete task '${task.title}'`"
-            class="text-sm text-gray-400 hover:text-red-600"
-            @click="deleteTask(task.id)"
+            :disabled="!!deleting || loading"
+            class="text-sm text-gray-400 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="taskToDelete = task.id"
           >
             Delete
           </button>
@@ -218,7 +230,7 @@ onMounted(fetchTasks)
       <div v-if="totalPages > 1" class="mt-4 flex items-center justify-center gap-2">
         <button
           type="button"
-          :disabled="currentPage <= 1"
+          :disabled="currentPage <= 1 || loading"
           class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-gray-50"
           @click="goToPage(currentPage - 1)"
         >
@@ -227,12 +239,44 @@ onMounted(fetchTasks)
         <span class="text-sm text-gray-600">Page {{ currentPage }} of {{ totalPages }}</span>
         <button
           type="button"
-          :disabled="currentPage >= totalPages"
+          :disabled="currentPage >= totalPages || loading"
           class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-gray-50"
           @click="goToPage(currentPage + 1)"
         >
           Next
         </button>
+      </div>
+    </div>
+
+    <!-- Delete confirmation dialog -->
+    <div
+      v-if="taskToDelete"
+      role="alertdialog"
+      aria-modal="true"
+      aria-labelledby="delete-dialog-title"
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+    >
+      <div class="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+        <h2 id="delete-dialog-title" class="text-lg font-semibold text-gray-900">Delete task?</h2>
+        <p class="mt-1 text-sm text-gray-600">This cannot be undone.</p>
+        <div class="mt-4 flex gap-3 justify-end">
+          <button
+            type="button"
+            :disabled="!!deleting"
+            class="rounded-md border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="taskToDelete = null"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            :disabled="!!deleting"
+            class="rounded-md bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+            @click="confirmDelete"
+          >
+            {{ deleting ? 'Deleting…' : 'Delete' }}
+          </button>
+        </div>
       </div>
     </div>
   </div>
