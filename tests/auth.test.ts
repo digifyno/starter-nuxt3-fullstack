@@ -26,14 +26,14 @@ describe('Auth API', async () => {
     await prisma.loginAttempt.deleteMany()
   })
 
-  async function register(email: string, password = 'password123', name = 'Test User') {
+  async function register(email: string, password = 'Password123', name = 'Test User') {
     return $fetch<{ user: { id: number; email: string; name: string } }>('/api/auth/register', {
       method: 'POST',
       body: { email, password, name },
     })
   }
 
-  async function loginGetCookie(email: string, password = 'password123'): Promise<string> {
+  async function loginGetCookie(email: string, password = 'Password123'): Promise<string> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -55,7 +55,7 @@ describe('Auth API', async () => {
       await register('dup@test.com')
       const err = await $fetch('/api/auth/register', {
         method: 'POST',
-        body: { email: 'dup@test.com', password: 'password123', name: 'Dup' },
+        body: { email: 'dup@test.com', password: 'Password123', name: 'Dup' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(409)
     })
@@ -75,7 +75,7 @@ describe('Auth API', async () => {
       const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: 'login@test.com', password: 'password123' }),
+        body: JSON.stringify({ email: 'login@test.com', password: 'Password123' }),
       })
       expect(res.status).toBe(200)
       const setCookie = res.headers.get('set-cookie') ?? ''
@@ -95,7 +95,7 @@ describe('Auth API', async () => {
     it('returns 401 for unknown email (no enumeration)', async () => {
       const err = await $fetch('/api/auth/login', {
         method: 'POST',
-        body: { email: 'unknown@test.com', password: 'password123' },
+        body: { email: 'unknown@test.com', password: 'Password123' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
     })
@@ -137,7 +137,7 @@ describe('Auth API', async () => {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: 'reset@test.com', password: 'password123' }),
+          body: JSON.stringify({ email: 'reset@test.com', password: 'Password123' }),
         })
         expect(res.status).toBe(200)
 
@@ -180,7 +180,7 @@ describe('Auth API', async () => {
         const res = await fetch('/api/auth/login', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email: 'expired@test.com', password: 'password123' }),
+          body: JSON.stringify({ email: 'expired@test.com', password: 'Password123' }),
         })
         expect(res.status).toBe(200)
       })

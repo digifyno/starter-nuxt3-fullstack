@@ -76,10 +76,10 @@ async function handleRegister() {
           v-model="password"
           type="password"
           required
-          minlength="6"
+          minlength="8"
           autocomplete="new-password"
           class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-          placeholder="At least 6 characters"
+          placeholder="At least 8 characters, including uppercase and a number"
         >
       </div>
 

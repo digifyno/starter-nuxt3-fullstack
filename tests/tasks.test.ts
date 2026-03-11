@@ -27,12 +27,12 @@ describe('Tasks API', async () => {
   async function createUserAndGetCookie(email: string): Promise<string> {
     await $fetch('/api/auth/register', {
       method: 'POST',
-      body: { email, password: 'password123', name: 'Test User' },
+      body: { email, password: 'Password123', name: 'Test User' },
     })
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password: 'password123' }),
+      body: JSON.stringify({ email, password: 'Password123' }),
     })
     const setCookie = res.headers.get('set-cookie') ?? ''
     const match = setCookie.match(/auth_token=([^;]+)/)
