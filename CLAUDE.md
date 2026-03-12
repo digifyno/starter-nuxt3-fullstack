@@ -22,7 +22,9 @@
 │   │   ├── auth/             # Authentication endpoints
 │   │   └── tasks/            # CRUD task endpoints (GET supports pagination)
 │   ├── middleware/
-│   │   └── rate-limit.ts     # Rate limiting for auth endpoints (10 req/min/IP)
+│   │   ├── rate-limit.ts     # Rate limiting for auth endpoints (10 req/min/IP)
+│   │   ├── csp.ts            # Dynamic Content Security Policy with per-request nonces
+│   │   └── csrf.ts           # CSRF protection middleware
 │   ├── plugins/
 │   │   └── startup-check.ts  # Validates JWT_SECRET is set on startup
 │   └── utils/
@@ -32,7 +34,12 @@
 │   ├── global-setup.ts       # Global test setup (isolated test DB)
 │   ├── health.test.ts        # Health endpoint smoke test
 │   ├── auth.test.ts          # Auth integration tests (register, login, me, logout)
-│   └── tasks.test.ts         # Task CRUD integration tests
+│   ├── tasks.test.ts         # Task CRUD integration tests
+│   ├── rate-limit.test.ts    # Rate limiting integration tests
+│   ├── security-headers.test.ts  # Security headers tests
+│   ├── csp.test.ts           # Content Security Policy tests
+│   ├── csrf.test.ts          # CSRF protection tests
+│   └── token-cleanup.test.ts # JWT token cleanup tests
 ├── eslint.config.mjs         # ESLint flat config (via @nuxt/eslint)
 ├── vitest.config.ts          # Vitest configuration
 ├── nuxt.config.ts            # Nuxt configuration
@@ -120,7 +127,8 @@ JWT-based auth with httpOnly cookies. The `auth` middleware on the `/tasks` page
 ## Security
 
 - **CSP & security headers** — applied globally via `routeRules` in `nuxt.config.ts`:
-  - `Content-Security-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
+  - `Strict-Transport-Security` (HSTS, max-age=63072000 with preload), `Permissions-Policy`, `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`
+  - `Content-Security-Policy` applied dynamically via `server/middleware/csp.ts` with per-request nonces (eliminates `unsafe-inline`)
 - **Rate limiting** — `server/middleware/rate-limit.ts` enforces 10 requests/60s per IP on `/api/auth/login` and `/api/auth/register`. Returns `429 Too Many Requests` with a `Retry-After` header. Set `RATE_LIMIT_DISABLED=1` to bypass in tests.
 - **JWT secret required** — enforced at startup; the server refuses to start without `JWT_SECRET`.
 
