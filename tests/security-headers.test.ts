@@ -35,4 +35,14 @@ describe('Security headers', async () => {
     const res = await fetch('/')
     expect(res.headers.get('referrer-policy')).toBe('strict-origin-when-cross-origin')
   })
+
+  it('sets Strict-Transport-Security header', async () => {
+    const res = await fetch('/')
+    expect(res.headers.get('strict-transport-security')).toBe('max-age=63072000; includeSubDomains; preload')
+  })
+
+  it('sets Permissions-Policy header', async () => {
+    const res = await fetch('/')
+    expect(res.headers.get('permissions-policy')).toBe('camera=(), microphone=(), geolocation=()')
+  })
 })

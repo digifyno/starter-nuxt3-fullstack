@@ -27,6 +27,8 @@ export default defineNuxtConfig({
       headers: {
         // Content-Security-Policy is set dynamically via server/middleware/csp.ts
         // to include per-request nonces, eliminating the need for 'unsafe-inline'
+        'Strict-Transport-Security': 'max-age=63072000; includeSubDomains; preload',
+        'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
         'X-Content-Type-Options': 'nosniff',
         'X-Frame-Options': 'DENY',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
