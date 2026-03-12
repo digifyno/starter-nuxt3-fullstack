@@ -1,4 +1,6 @@
 <script setup lang="ts">
+useHead({ title: 'Create Account — RSI Starter' })
+
 const { register, isAuthenticated } = useAuth()
 
 const email = ref('')
@@ -6,6 +8,7 @@ const name = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const errorEl = ref<HTMLElement | null>(null)
 
 if (isAuthenticated.value) {
   navigateTo('/tasks')
@@ -19,6 +22,8 @@ async function handleRegister() {
     navigateTo('/tasks')
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Registration failed'
+    await nextTick()
+    errorEl.value?.focus()
   } finally {
     loading.value = false
   }
@@ -36,8 +41,10 @@ async function handleRegister() {
     <form class="mt-6 space-y-4" @submit.prevent="handleRegister">
       <div
         v-if="error"
+        ref="errorEl"
         role="alert"
         aria-live="polite"
+        tabindex="-1"
         class="rounded-md bg-red-50 p-3 text-sm text-red-700"
       >
         {{ error }}

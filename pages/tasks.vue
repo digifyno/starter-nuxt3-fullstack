@@ -1,5 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth' })
+useHead({ title: 'My Tasks — RSI Starter' })
 
 interface Task {
   id: number
@@ -30,6 +31,8 @@ const pageSize = 20
 const taskToDelete = ref<Task | null>(null)
 const deleting = ref<number | null>(null)
 const cancelDeleteBtn = ref<HTMLButtonElement | null>(null)
+const errorEl = ref<HTMLElement | null>(null)
+const validationErrorEl = ref<HTMLElement | null>(null)
 
 function validateTask(title: string, description: string): string | null {
   if (!title.trim()) return 'Title is required'
@@ -66,6 +69,8 @@ async function addTask() {
   const err = validateTask(newTitle.value, newDescription.value)
   if (err) {
     validationError.value = err
+    await nextTick()
+    validationErrorEl.value?.focus()
     return
   }
   adding.value = true
@@ -79,6 +84,8 @@ async function addTask() {
     await fetchTasks(1)
   } catch {
     error.value = 'Failed to create task'
+    await nextTick()
+    errorEl.value?.focus()
   } finally {
     adding.value = false
   }
@@ -157,12 +164,18 @@ onMounted(fetchTasks)
           class="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none resize-y"
           placeholder="Description (optional)"
         />
-        <p class="mt-1 text-xs text-gray-400 text-right">{{ 1000 - (newDescription?.length ?? 0) }} characters remaining</p>
+        <p
+          class="mt-1 text-xs text-gray-400 text-right"
+          aria-live="polite"
+          aria-atomic="true"
+        >{{ 1000 - (newDescription?.length ?? 0) }} characters remaining</p>
       </div>
       <div
         v-if="validationError"
+        ref="validationErrorEl"
         role="alert"
         aria-live="polite"
+        tabindex="-1"
         class="rounded-md bg-red-50 p-3 text-sm text-red-700"
       >
         {{ validationError }}
@@ -178,8 +191,10 @@ onMounted(fetchTasks)
 
     <div
       v-if="error"
+      ref="errorEl"
       role="alert"
       aria-live="polite"
+      tabindex="-1"
       class="mt-4 rounded-md bg-red-50 p-3 text-sm text-red-700"
     >
       {{ error }}
@@ -218,8 +233,7 @@ onMounted(fetchTasks)
             </p>
             <p
               v-if="task.description"
-              class="mt-0.5 text-xs text-gray-500 truncate"
-              :title="task.description"
+              class="mt-0.5 text-xs text-gray-500"
             >
               {{ task.description }}
             </p>
@@ -240,6 +254,7 @@ onMounted(fetchTasks)
         <button
           type="button"
           :disabled="currentPage <= 1 || loading"
+          :aria-label="`Go to page ${currentPage - 1} of ${totalPages}`"
           class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-gray-50"
           @click="goToPage(currentPage - 1)"
         >
@@ -249,6 +264,7 @@ onMounted(fetchTasks)
         <button
           type="button"
           :disabled="currentPage >= totalPages || loading"
+          :aria-label="`Go to page ${currentPage + 1} of ${totalPages}`"
           class="rounded-md border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 disabled:cursor-not-allowed disabled:opacity-50 hover:enabled:bg-gray-50"
           @click="goToPage(currentPage + 1)"
         >

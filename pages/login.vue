@@ -1,10 +1,13 @@
 <script setup lang="ts">
+useHead({ title: 'Sign In — RSI Starter' })
+
 const { login, isAuthenticated } = useAuth()
 
 const email = ref('')
 const password = ref('')
 const error = ref('')
 const loading = ref(false)
+const errorEl = ref<HTMLElement | null>(null)
 
 if (isAuthenticated.value) {
   navigateTo('/tasks')
@@ -18,6 +21,8 @@ async function handleLogin() {
     navigateTo('/tasks')
   } catch (e: unknown) {
     error.value = e instanceof Error ? e.message : 'Login failed'
+    await nextTick()
+    errorEl.value?.focus()
   } finally {
     loading.value = false
   }
@@ -40,8 +45,10 @@ async function handleLogin() {
       <div
         v-if="error"
         id="login-error"
+        ref="errorEl"
         role="alert"
         aria-live="polite"
+        tabindex="-1"
         class="rounded-md bg-red-50 p-3 text-sm text-red-700"
       >
         {{ error }}
