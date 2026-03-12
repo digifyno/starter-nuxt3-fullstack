@@ -51,11 +51,13 @@ export async function requireAuth(event: H3Event): Promise<JwtPayload> {
     throw createError({ statusCode: 401, statusMessage: 'Invalid or expired token' })
   }
 
-  if (payload.jti) {
-    const blocked = await prisma.tokenBlocklist.findUnique({ where: { jti: payload.jti } })
-    if (blocked) {
-      throw createError({ statusCode: 401, statusMessage: 'Token has been revoked' })
-    }
+  if (!payload.jti) {
+    throw createError({ statusCode: 401, statusMessage: 'Token missing required jti claim' })
+  }
+
+  const blocked = await prisma.tokenBlocklist.findUnique({ where: { jti: payload.jti } })
+  if (blocked) {
+    throw createError({ statusCode: 401, statusMessage: 'Token has been revoked' })
   }
 
   // Reject tokens issued before the user's last password change
