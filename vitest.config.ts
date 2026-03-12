@@ -14,7 +14,7 @@ export default defineVitestConfig({
     },
     env: {
       DATABASE_URL: `file:${TEST_DB_PATH}`,
-      JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
+      NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
     },
   },
 })

@@ -13,10 +13,12 @@ const prisma = new PrismaClient({ datasourceUrl: TEST_DB_URL })
 
 describe('JWT Security', async () => {
   await setup({
+    build: false,
+    nuxtConfig: { nitro: { output: { dir: "dist" } } },
     server: true,
     env: {
       DATABASE_URL: TEST_DB_URL,
-      JWT_SECRET,
+      NUXT_JWT_SECRET: JWT_SECRET,
       RATE_LIMIT_DISABLED: '1',
     },
   })

@@ -1,6 +1,6 @@
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
-import prisma from '~/server/utils/prisma'
+import prisma from '../../utils/prisma'
 
 const resetPasswordSchema = z.object({
   token: z.string().min(1, 'Token is required'),

@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
-import prisma from '~/server/utils/prisma'
+import prisma from '../../utils/prisma'
 
 const forgotPasswordSchema = z.object({
   email: z.string().email('Invalid email address'),

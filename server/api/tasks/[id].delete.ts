@@ -1,5 +1,5 @@
-import prisma from '~/server/utils/prisma'
-import { requireAuth } from '~/server/utils/jwt'
+import prisma from '../../utils/prisma'
+import { requireAuth } from '../../utils/jwt'
 
 export default defineEventHandler(async (event) => {
   const { userId } = await requireAuth(event)

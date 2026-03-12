@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
-import prisma from '~/server/utils/prisma'
-import { signToken } from '~/server/utils/jwt'
+import prisma from '../../utils/prisma'
+import { signToken } from '../../utils/jwt'
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),

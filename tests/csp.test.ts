@@ -8,10 +8,12 @@ const TEST_DB_URL = `file:${TEST_DB_PATH}`
 
 describe('Content-Security-Policy', async () => {
   await setup({
+    build: false,
+    nuxtConfig: { nitro: { output: { dir: "dist" } } },
     server: true,
     env: {
       DATABASE_URL: TEST_DB_URL,
-      JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
+      NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
       RATE_LIMIT_DISABLED: '1',
     },
   })

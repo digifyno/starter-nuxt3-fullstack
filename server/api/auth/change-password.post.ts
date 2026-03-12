@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs'
 import { z } from 'zod'
-import prisma from '~/server/utils/prisma'
-import { requireAuth } from '~/server/utils/jwt'
+import prisma from '../../utils/prisma'
+import { requireAuth } from '../../utils/jwt'
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, 'Current password is required'),

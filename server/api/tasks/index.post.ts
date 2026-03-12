@@ -1,6 +1,6 @@
 import { z } from 'zod'
-import prisma from '~/server/utils/prisma'
-import { requireAuth } from '~/server/utils/jwt'
+import prisma from '../../utils/prisma'
+import { requireAuth } from '../../utils/jwt'
 
 const createTaskSchema = z.object({
   title: z.string().min(1, 'Title is required').max(200),

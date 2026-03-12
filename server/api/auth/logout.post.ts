@@ -1,5 +1,5 @@
-import prisma from '~/server/utils/prisma'
-import { verifyToken } from '~/server/utils/jwt'
+import prisma from '../../utils/prisma'
+import { verifyToken } from '../../utils/jwt'
 
 export default defineEventHandler(async (event) => {
   const token = getCookie(event, 'auth_token')
