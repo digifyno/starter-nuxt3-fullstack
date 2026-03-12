@@ -6,6 +6,7 @@ export interface JwtPayload {
   userId: number
   email: string
   jti: string
+  iat?: number
   exp?: number
 }
 
@@ -54,6 +55,20 @@ export async function requireAuth(event: H3Event): Promise<JwtPayload> {
     const blocked = await prisma.tokenBlocklist.findUnique({ where: { jti: payload.jti } })
     if (blocked) {
       throw createError({ statusCode: 401, statusMessage: 'Token has been revoked' })
+    }
+  }
+
+  // Reject tokens issued before the user's last password change
+  if (payload.iat) {
+    const user = await prisma.user.findUnique({
+      where: { id: payload.userId },
+      select: { passwordChangedAt: true },
+    })
+    if (user?.passwordChangedAt) {
+      const passwordChangedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000)
+      if (payload.iat <= passwordChangedAtSec) {
+        throw createError({ statusCode: 401, statusMessage: 'Token has been invalidated due to password change' })
+      }
     }
   }
 

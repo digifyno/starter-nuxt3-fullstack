@@ -1,6 +1,13 @@
-const AUTH_PATHS = ['/api/auth/login', '/api/auth/register']
-const MAX_REQUESTS = 10
-const WINDOW_MS = 60 * 1000 // 60 seconds
+interface RouteConfig {
+  maxRequests: number
+  windowMs: number
+}
+
+const ROUTE_CONFIGS: Record<string, RouteConfig> = {
+  '/api/auth/login': { maxRequests: 10, windowMs: 60 * 1000 },
+  '/api/auth/register': { maxRequests: 10, windowMs: 60 * 1000 },
+  '/api/auth/forgot-password': { maxRequests: 3, windowMs: 15 * 60 * 1000 },
+}
 
 interface RateLimitEntry {
   count: number
@@ -25,8 +32,9 @@ export default defineEventHandler((event) => {
   }
 
   const path = event.path
+  const config = ROUTE_CONFIGS[path]
 
-  if (!AUTH_PATHS.includes(path)) {
+  if (!config) {
     return
   }
 
@@ -38,13 +46,13 @@ export default defineEventHandler((event) => {
   const entry = store.get(key)
 
   if (!entry || now >= entry.resetAt) {
-    store.set(key, { count: 1, resetAt: now + WINDOW_MS })
+    store.set(key, { count: 1, resetAt: now + config.windowMs })
     return
   }
 
   entry.count++
 
-  if (entry.count > MAX_REQUESTS) {
+  if (entry.count > config.maxRequests) {
     const retryAfter = Math.ceil((entry.resetAt - now) / 1000)
     setResponseHeaders(event, {
       'Retry-After': String(retryAfter),

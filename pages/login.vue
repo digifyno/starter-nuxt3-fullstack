@@ -61,7 +61,12 @@ async function handleLogin() {
       </div>
 
       <div>
-        <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+        <div class="flex items-center justify-between">
+          <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+          <NuxtLink to="/forgot-password" class="text-sm text-primary-600 hover:text-primary-700">
+            Forgot password?
+          </NuxtLink>
+        </div>
         <input
           id="password"
           v-model="password"

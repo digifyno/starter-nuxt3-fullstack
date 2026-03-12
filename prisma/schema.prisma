@@ -8,13 +8,15 @@ datasource db {
 }
 
 model User {
-  id        Int      @id @default(autoincrement())
-  email     String   @unique
-  name      String
-  password  String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  tasks     Task[]
+  id                   Int                   @id @default(autoincrement())
+  email                String                @unique
+  name                 String
+  password             String
+  passwordChangedAt    DateTime?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  tasks                Task[]
+  passwordResetTokens  PasswordResetToken[]
 }
 
 model Task {
@@ -44,4 +46,16 @@ model LoginAttempt {
   failedCount   Int       @default(0)
   lockedUntil   DateTime?
   lastAttemptAt DateTime  @default(now())
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    Int
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
 }
