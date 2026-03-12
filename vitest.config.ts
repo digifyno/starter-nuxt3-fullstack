@@ -8,6 +8,10 @@ export default defineVitestConfig({
     environment: 'nuxt',
     globalSetup: ['./tests/global-setup.ts'],
     fileParallelism: false,
+    pool: 'forks',
+    forks: {
+      singleFork: true,
+    },
     env: {
       DATABASE_URL: `file:${TEST_DB_PATH}`,
       JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',

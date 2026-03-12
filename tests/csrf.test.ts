@@ -32,7 +32,7 @@ describe('CSRF middleware', async () => {
         'Content-Type': 'application/json',
         Origin: 'https://evil.com',
       },
-      body: JSON.stringify({ email: 'test@test.com', password: 'password123' }),
+      body: JSON.stringify({ email: 'test@test.com', password: 'Password123' }),
     })
     expect(res.status).toBe(403)
   })
@@ -42,7 +42,7 @@ describe('CSRF middleware', async () => {
     await fetch('/api/auth/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Origin: 'http://localhost:3000' },
-      body: JSON.stringify({ email: 'csrf@test.com', password: 'password123', name: 'CSRF Test' }),
+      body: JSON.stringify({ email: 'csrf@test.com', password: 'Password123', name: 'CSRF Test' }),
     })
     const res = await fetch('/api/auth/login', {
       method: 'POST',
@@ -50,7 +50,7 @@ describe('CSRF middleware', async () => {
         'Content-Type': 'application/json',
         Origin: 'http://localhost:3000',
       },
-      body: JSON.stringify({ email: 'csrf@test.com', password: 'password123' }),
+      body: JSON.stringify({ email: 'csrf@test.com', password: 'Password123' }),
     })
     expect(res.status).toBe(200)
   })
@@ -67,7 +67,7 @@ describe('CSRF middleware', async () => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email: 'noorigin@test.com', password: 'password123' }),
+      body: JSON.stringify({ email: 'noorigin@test.com', password: 'Password123' }),
     })
     // Should not be 403 (may be 401 due to wrong credentials, but not CSRF blocked)
     expect(res.status).not.toBe(403)

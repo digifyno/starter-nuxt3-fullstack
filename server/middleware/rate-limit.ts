@@ -9,6 +9,15 @@ interface RateLimitEntry {
 
 const store = new Map<string, RateLimitEntry>()
 
+// Periodically evict expired entries to prevent unbounded Map growth with unique IPs
+const CLEANUP_INTERVAL_MS = 5 * 60 * 1000 // every 5 minutes
+setInterval(() => {
+  const now = Date.now()
+  store.forEach((entry, key) => {
+    if (now >= entry.resetAt) store.delete(key)
+  })
+}, CLEANUP_INTERVAL_MS).unref()
+
 export default defineEventHandler((event) => {
   // Disabled in test environment to allow integration tests to run without hitting limits
   if (process.env.RATE_LIMIT_DISABLED === '1') {
@@ -21,7 +30,8 @@ export default defineEventHandler((event) => {
     return
   }
 
-  const ip = getRequestIP(event, { xForwardedFor: false }) ?? 'unknown'
+  // Use X-Forwarded-For to get the real client IP when behind a reverse proxy (e.g. nginx)
+  const ip = getRequestIP(event, { xForwardedFor: true }) ?? 'unknown'
   const key = `${ip}:${path}`
   const now = Date.now()
 
