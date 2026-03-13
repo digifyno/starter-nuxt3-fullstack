@@ -4,7 +4,7 @@ import { randomBytes } from 'crypto'
 import prisma from '~/server/utils/prisma'
 
 const forgotPasswordSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.email('Invalid email address'),
 })
 
 const TOKEN_EXPIRY_MS = 60 * 60 * 1000 // 1 hour
@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) {
     throw createError({
       statusCode: 400,
-      statusMessage: parsed.error.errors[0].message,
+      statusMessage: parsed.error.issues[0].message,
     })
   }
 

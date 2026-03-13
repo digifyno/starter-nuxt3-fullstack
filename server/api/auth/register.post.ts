@@ -4,7 +4,7 @@ import prisma from '~/server/utils/prisma'
 import { signToken } from '~/server/utils/jwt'
 
 const registerSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.email('Invalid email address'),
   name: z.string().min(2, 'Name must be at least 2 characters'),
   password: z.string()
     .min(8, 'Password must be at least 8 characters')
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) {
     throw createError({
       statusCode: 400,
-      statusMessage: parsed.error.errors[0].message,
+      statusMessage: parsed.error.issues[0].message,
     })
   }
 

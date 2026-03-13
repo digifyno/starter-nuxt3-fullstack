@@ -4,7 +4,7 @@ import prisma from '~/server/utils/prisma'
 import { signToken } from '~/server/utils/jwt'
 
 const loginSchema = z.object({
-  email: z.string().email('Invalid email address'),
+  email: z.email('Invalid email address'),
   password: z.string().min(1, 'Password is required'),
 })
 
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) {
     throw createError({
       statusCode: 400,
-      statusMessage: parsed.error.errors[0].message,
+      statusMessage: parsed.error.issues[0].message,
     })
   }
 
