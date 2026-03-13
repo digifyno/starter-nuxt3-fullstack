@@ -3,7 +3,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { setup, $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { PrismaClient } from '@prisma/client'
 import { resolve } from 'path'
-import bcrypt from 'bcryptjs'
+import argon2 from 'argon2'
 
 const TEST_DB_PATH = resolve(process.cwd(), 'tests', 'test.db')
 const TEST_DB_URL = `file:${TEST_DB_PATH}`
@@ -52,7 +52,7 @@ describe('Password Reset & Change API', async () => {
   async function createResetToken(userId: number): Promise<string> {
     const { randomBytes } = await import('crypto')
     const plainToken = randomBytes(32).toString('hex')
-    const hashedToken = await bcrypt.hash(plainToken, 10)
+    const hashedToken = await argon2.hash(plainToken, { type: argon2.argon2id })
     await prisma.passwordResetToken.create({
       data: {
         userId,
@@ -162,7 +162,7 @@ describe('Password Reset & Change API', async () => {
       const result = await register('expired@test.com')
       const { randomBytes } = await import('crypto')
       const plainToken = randomBytes(32).toString('hex')
-      const hashedToken = await bcrypt.hash(plainToken, 10)
+      const hashedToken = await argon2.hash(plainToken, { type: argon2.argon2id })
 
       // Create an already-expired token
       await prisma.passwordResetToken.create({

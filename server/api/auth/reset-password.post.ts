@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import argon2 from 'argon2'
 import { z } from 'zod'
 import prisma from '../../utils/prisma'
 
@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
 
   let matchedToken: { id: string; userId: number } | null = null
   for (const candidate of candidates) {
-    const isMatch = await bcrypt.compare(token, candidate.token)
+    const isMatch = await argon2.verify(candidate.token, token)
     if (isMatch) {
       matchedToken = { id: candidate.id, userId: candidate.userId }
       break
@@ -50,7 +50,7 @@ export default defineEventHandler(async (event) => {
     })
   }
 
-  const hashedPassword = await bcrypt.hash(newPassword, 12)
+  const hashedPassword = await argon2.hash(newPassword, { type: argon2.argon2id })
   const passwordChangedAt = new Date()
 
   // Update password, set passwordChangedAt to invalidate all existing JWTs,

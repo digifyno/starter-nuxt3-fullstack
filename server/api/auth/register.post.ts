@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import argon2 from 'argon2'
 import { z } from 'zod'
 import prisma from '../../utils/prisma'
 import { signToken } from '../../utils/jwt'
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 409, statusMessage: 'Email already registered' })
   }
 
-  const hashedPassword = await bcrypt.hash(password, 12)
+  const hashedPassword = await argon2.hash(password, { type: argon2.argon2id })
   const user = await prisma.user.create({
     data: { email, name, password: hashedPassword },
   })

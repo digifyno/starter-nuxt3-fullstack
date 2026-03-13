@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import argon2 from 'argon2'
 import { z } from 'zod'
 import prisma from '../../utils/prisma'
 import { signToken } from '../../utils/jwt'
@@ -10,7 +10,17 @@ const loginSchema = z.object({
 
 // Precomputed dummy hash used when user is not found, to ensure constant-time
 // response and prevent timing-based email enumeration attacks.
-const DUMMY_HASH = '$2a$10$abcdefghijklmnopqrstuuABCDEFGHIJKLMNOPQRSTUVWXYZ123456'
+// Must be a valid Argon2id hash (not bcrypt) so argon2.verify does not throw.
+// NOTE: For existing deployments with bcrypt-hashed passwords, a migration
+// strategy is needed (e.g., rehash on login). This starter template has no
+// live users so the bcrypt→argon2 switch is safe here.
+let _dummyHash: string | null = null
+async function getDummyHash(): Promise<string> {
+  if (!_dummyHash) {
+    _dummyHash = await argon2.hash('dummy_password_for_timing', { type: argon2.argon2id })
+  }
+  return _dummyHash
+}
 
 const MAX_FAILURES = 5
 const LOCKOUT_MINUTES = 15
@@ -29,7 +39,7 @@ export default defineEventHandler(async (event) => {
   const { email, password } = parsed.data
   const now = new Date()
 
-  // Check per-account lockout before running bcrypt
+  // Check per-account lockout before running argon2
   const attempt = await prisma.loginAttempt.findUnique({ where: { email } })
   if (attempt?.lockedUntil && attempt.lockedUntil > now) {
     const retryAfter = Math.ceil((attempt.lockedUntil.getTime() - now.getTime()) / 1000)
@@ -43,10 +53,10 @@ export default defineEventHandler(async (event) => {
 
   const user = await prisma.user.findUnique({ where: { email } })
 
-  // Always run bcrypt.compare() to ensure consistent response time regardless
+  // Always run argon2.verify() to ensure consistent response time regardless
   // of whether the email exists, preventing timing-based user enumeration.
-  const hashToCompare = user?.password ?? DUMMY_HASH
-  const valid = await bcrypt.compare(password, hashToCompare)
+  const hashToCompare = user?.password ?? (await getDummyHash())
+  const valid = await argon2.verify(hashToCompare, password)
 
   if (!user || !valid) {
     // Record failed attempt and apply lockout if threshold reached

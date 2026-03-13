@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import argon2 from 'argon2'
 import { z } from 'zod'
 import { randomBytes } from 'crypto'
 import prisma from '../../utils/prisma'
@@ -37,7 +37,7 @@ export default defineEventHandler(async (event) => {
 
   // Generate a cryptographically random token
   const plainToken = randomBytes(32).toString('hex')
-  const hashedToken = await bcrypt.hash(plainToken, 10)
+  const hashedToken = await argon2.hash(plainToken, { type: argon2.argon2id })
   const expiresAt = new Date(Date.now() + TOKEN_EXPIRY_MS)
 
   await prisma.passwordResetToken.create({

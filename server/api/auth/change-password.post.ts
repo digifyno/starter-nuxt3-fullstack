@@ -1,4 +1,4 @@
-import bcrypt from 'bcryptjs'
+import argon2 from 'argon2'
 import { z } from 'zod'
 import prisma from '../../utils/prisma'
 import { requireAuth } from '../../utils/jwt'
@@ -32,12 +32,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 404, statusMessage: 'User not found' })
   }
 
-  const valid = await bcrypt.compare(currentPassword, user.password)
+  const valid = await argon2.verify(user.password, currentPassword)
   if (!valid) {
     throw createError({ statusCode: 400, statusMessage: 'Current password is incorrect' })
   }
 
-  const hashedPassword = await bcrypt.hash(newPassword, 12)
+  const hashedPassword = await argon2.hash(newPassword, { type: argon2.argon2id })
 
   // Setting passwordChangedAt invalidates all existing JWTs issued before this timestamp
   await prisma.user.update({
