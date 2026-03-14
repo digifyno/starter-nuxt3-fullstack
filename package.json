@@ -16,7 +16,6 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "pretest": "test -d dist || npm run build",
     "test": "vitest"
   },
   "dependencies": {

@@ -8,8 +8,7 @@ const TEST_DB_URL = `file:${TEST_DB_PATH}`
 
 describe('Content-Security-Policy', async () => {
   await setup({
-    build: false,
-    nuxtConfig: { nitro: { output: { dir: "dist" } } },
+    build: true,
     server: true,
     env: {
       DATABASE_URL: TEST_DB_URL,

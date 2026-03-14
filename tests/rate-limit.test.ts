@@ -9,8 +9,7 @@ const TEST_DB_URL = `file:${TEST_DB_PATH}`
 // Note: tests run with RATE_LIMIT_DISABLED=1 normally — this suite must NOT set that flag
 describe('Rate limiting', async () => {
   await setup({
-    build: false,
-    nuxtConfig: { nitro: { output: { dir: "dist" } } },
+    build: true,
     server: true,
     env: {
       DATABASE_URL: TEST_DB_URL,

@@ -157,7 +157,7 @@ Start the server: `node dist/server/index.mjs`
 
 ## Testing Notes
 
-Tests use `build: false` to avoid rebuilding the app during test runs. `npm test` auto-builds if `dist/` is missing. Run `npm run build` explicitly to force a rebuild.
+Tests use `build: true` so each test suite builds the app itself — no pre-build step is required. Running `npm test` is fully self-contained.
 
 Tests pass environment variables with Nuxt 4 conventions:
 - `NUXT_JWT_SECRET` instead of `JWT_SECRET`
