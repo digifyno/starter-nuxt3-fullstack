@@ -184,3 +184,9 @@ Build output is in `dist/`. For production:
 2. Set `NUXT_JWT_SECRET` to a secure random value (required — server will not start without it)
 3. Run `npx prisma migrate deploy` then `npm run build`
 4. Start with `node dist/server/index.mjs`
+
+> **Note on native dependencies**: `argon2` is externalized from the Nitro bundle and must
+> resolve from `node_modules/` at runtime. Keep `node_modules/` present alongside `dist/`,
+> or ensure `argon2` is installed in the server's working directory. Running `npm ci --omit=dev`
+> is NOT supported — `argon2` is listed under `dependencies` (not `devDependencies`) specifically
+> for this reason.
