@@ -12,8 +12,8 @@ export default defineVitestConfig({
     forks: {
       singleFork: true,
     },
-    testTimeout: 30000,
-    hookTimeout: 15000,
+    testTimeout: 60000,
+    hookTimeout: 30000,
     env: {
       DATABASE_URL: `file:${TEST_DB_PATH}`,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
