@@ -24,6 +24,9 @@ export default defineNuxtConfig({
     output: {
       dir: 'dist',
     },
+    externals: {
+      external: ['argon2', 'node-gyp-build'],
+    },
   },
 
   runtimeConfig: {
