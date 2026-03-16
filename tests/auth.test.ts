@@ -45,6 +45,17 @@ describe('Auth API', async () => {
     return match?.[1] ?? ''
   }
 
+  async function loginGetRefreshCookie(email: string, password = 'Password123'): Promise<string> {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password }),
+    })
+    const setCookieHeader = res.headers.get('set-cookie') ?? ''
+    const match = setCookieHeader.match(/refresh_token=([^;]+)/)
+    return match?.[1] ?? ''
+  }
+
   describe('POST /api/auth/register', () => {
     it('creates user and returns id/email', async () => {
       const result = await register('new@test.com')
@@ -68,6 +79,30 @@ describe('Auth API', async () => {
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
     })
+
+    it('sets auth_token httpOnly cookie on register', async () => {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'regcookie@test.com', password: 'Password123', name: 'Test' }),
+      })
+      expect(res.status).toBe(200)
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toContain('auth_token=')
+      expect(setCookie.toLowerCase()).toContain('httponly')
+    })
+
+    it('sets refresh_token httpOnly cookie on register', async () => {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'regrefresh@test.com', password: 'Password123', name: 'Test' }),
+      })
+      expect(res.status).toBe(200)
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toContain('refresh_token=')
+      expect(setCookie.toLowerCase()).toContain('httponly')
+    })
   })
 
   describe('POST /api/auth/login', () => {
@@ -81,6 +116,19 @@ describe('Auth API', async () => {
       expect(res.status).toBe(200)
       const setCookie = res.headers.get('set-cookie') ?? ''
       expect(setCookie).toContain('auth_token=')
+      expect(setCookie.toLowerCase()).toContain('httponly')
+    })
+
+    it('success sets refresh_token httpOnly cookie', async () => {
+      await register('loginrefresh@test.com')
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: 'loginrefresh@test.com', password: 'Password123' }),
+      })
+      expect(res.status).toBe(200)
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toContain('refresh_token=')
       expect(setCookie.toLowerCase()).toContain('httponly')
     })
 
@@ -218,6 +266,18 @@ describe('Auth API', async () => {
       expect(setCookie).toMatch(/auth_token=($|;|,)/)
     })
 
+    it('clears the refresh_token cookie on logout', async () => {
+      await register('logoutrefresh@test.com')
+      const refreshCookie = await loginGetRefreshCookie('logoutrefresh@test.com')
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { cookie: `refresh_token=${refreshCookie}` },
+      })
+      expect(res.status).toBe(200)
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toMatch(/refresh_token=($|;|,)/)
+    })
+
     it('rejects protected requests after logout using the old token', async () => {
       await register('revoke@test.com')
       const cookie = await loginGetCookie('revoke@test.com')
@@ -244,6 +304,69 @@ describe('Auth API', async () => {
     it('logout succeeds when cookie is missing', async () => {
       const res = await fetch('/api/auth/logout', { method: 'POST' })
       expect(res.status).toBe(200)
+    })
+  })
+
+  describe('POST /api/auth/refresh', () => {
+    it('issues a new auth_token when a valid refresh_token cookie is present', async () => {
+      await register('refresh@test.com')
+      const refreshCookie = await loginGetRefreshCookie('refresh@test.com')
+
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { cookie: `refresh_token=${refreshCookie}` },
+      })
+      expect(res.status).toBe(200)
+      const setCookie = res.headers.get('set-cookie') ?? ''
+      expect(setCookie).toContain('auth_token=')
+      expect(setCookie.toLowerCase()).toContain('httponly')
+
+      const body = await res.json()
+      expect(body.ok).toBe(true)
+    })
+
+    it('new auth_token from refresh allows authenticated requests', async () => {
+      await register('refreshme@test.com')
+      const refreshCookie = await loginGetRefreshCookie('refreshme@test.com')
+
+      const refreshRes = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { cookie: `refresh_token=${refreshCookie}` },
+      })
+      expect(refreshRes.status).toBe(200)
+      const setCookie = refreshRes.headers.get('set-cookie') ?? ''
+      const match = setCookie.match(/auth_token=([^;]+)/)
+      const newAccessToken = match?.[1] ?? ''
+      expect(newAccessToken).toBeTruthy()
+
+      const meResult = await $fetch<{ user: { email: string } }>('/api/auth/me', {
+        headers: { cookie: `auth_token=${newAccessToken}` },
+      })
+      expect(meResult.user.email).toBe('refreshme@test.com')
+    })
+
+    it('returns 401 when no refresh_token cookie is present', async () => {
+      const res = await fetch('/api/auth/refresh', { method: 'POST' })
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 401 when refresh_token is invalid', async () => {
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { cookie: 'refresh_token=invalid.token.here' },
+      })
+      expect(res.status).toBe(401)
+    })
+
+    it('returns 401 when an access token is used as a refresh token', async () => {
+      await register('wrongtype@test.com')
+      const accessCookie = await loginGetCookie('wrongtype@test.com')
+
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { cookie: `refresh_token=${accessCookie}` },
+      })
+      expect(res.status).toBe(401)
     })
   })
 })

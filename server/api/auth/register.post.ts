@@ -1,7 +1,7 @@
 import argon2 from 'argon2'
 import { z } from 'zod'
 import prisma from '../../utils/prisma'
-import { signToken } from '../../utils/jwt'
+import { signAccessToken, signRefreshToken } from '../../utils/jwt'
 
 const registerSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -35,14 +35,22 @@ export default defineEventHandler(async (event) => {
     data: { email, name, password: hashedPassword },
   })
 
-  const token = signToken({ userId: user.id, email: user.email })
+  const isProduction = process.env.NODE_ENV === 'production'
 
-  setCookie(event, 'auth_token', token, {
+  setCookie(event, 'auth_token', signAccessToken(user.id, user.email), {
     httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
+    secure: isProduction,
+    sameSite: 'lax',
+    maxAge: 60 * 15,
+    path: '/',
+  })
+
+  setCookie(event, 'refresh_token', signRefreshToken(user.id), {
+    httpOnly: true,
+    secure: isProduction,
     sameSite: 'lax',
     maxAge: 60 * 60 * 24 * 7,
-    path: '/',
+    path: '/api/auth/refresh',
   })
 
   return {

@@ -23,6 +23,24 @@ function extractErrorMessage(e: unknown, fallback: string): string {
   return fallback
 }
 
+async function fetchWithRefresh(url: string, options: Record<string, unknown> = {}): Promise<unknown> {
+  try {
+    return await ($fetch as (url: string, opts?: unknown) => Promise<unknown>)(url, options)
+  } catch (e: unknown) {
+    const err = e as Record<string, unknown>
+    const status = err?.status ?? (err?.response as Record<string, unknown>)?.status
+    if (status === 401) {
+      try {
+        await $fetch('/api/auth/refresh', { method: 'POST' })
+        return await ($fetch as (url: string, opts?: unknown) => Promise<unknown>)(url, options)
+      } catch {
+        throw e
+      }
+    }
+    throw e
+  }
+}
+
 export function useAuth() {
   const authState = useState<AuthState>('auth', () => ({ user: null }))
 
@@ -30,7 +48,7 @@ export function useAuth() {
 
   async function fetchUser() {
     try {
-      const data = await $fetch('/api/auth/me')
+      const data = await fetchWithRefresh('/api/auth/me') as { user: User }
       authState.value.user = data.user
       return data.user
     } catch {
@@ -41,7 +59,7 @@ export function useAuth() {
 
   async function login(email: string, password: string) {
     try {
-      const data = await $fetch('/api/auth/login', {
+      const data = await $fetch<{ user: User }>('/api/auth/login', {
         method: 'POST',
         body: { email, password },
       })
@@ -54,7 +72,7 @@ export function useAuth() {
 
   async function register(email: string, name: string, password: string) {
     try {
-      const data = await $fetch('/api/auth/register', {
+      const data = await $fetch<{ user: User }>('/api/auth/register', {
         method: 'POST',
         body: { email, name, password },
       })
