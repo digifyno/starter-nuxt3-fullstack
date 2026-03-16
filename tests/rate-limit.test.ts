@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll } from 'vitest'
 import { setup, fetch } from '@nuxt/test-utils/e2e'
 import { resolve } from 'path'
 
@@ -9,8 +9,11 @@ const TEST_DB_URL = `file:${TEST_DB_PATH}`
 // Note: tests run with RATE_LIMIT_DISABLED=1 normally — this suite must NOT set that flag
 describe('Rate limiting', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
@@ -18,10 +21,23 @@ describe('Rate limiting', async () => {
     },
   })
 
+  // CSRF credentials — nuxt-security uses nuxt-csurf double-submit cookie pattern
+  let csrfToken = ''
+  let csrfCookie = ''
+  beforeAll(async () => {
+    const res = await fetch('/')
+    const html = await res.text()
+    csrfToken = html.match(/<meta name="csrf-token" content="([^"]+)"/)?.[1] ?? ''
+    const setCookie = res.headers.get('set-cookie') ?? ''
+    const cookieMatch = setCookie.match(/(?:^|,\s*)(?:__Host-)?csrf=([^;,]+)/)
+    const cookieName = setCookie.includes('__Host-csrf') ? '__Host-csrf' : 'csrf'
+    csrfCookie = `${cookieName}=${cookieMatch?.[1] ?? ''}`
+  })
+
   it('allows requests under the limit', async () => {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.0.0.1' },
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.0.0.1', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email: 'x@x.com', password: 'wrong' }),
     })
     // Should get 401 (auth failure), not 429 (rate limit)
@@ -33,13 +49,13 @@ describe('Rate limiting', async () => {
     for (let i = 0; i < 10; i++) {
       await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.1.1.1' },
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.1.1.1', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'y@y.com', password: 'wrong' }),
       })
     }
     const limited = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.1.1.1' },
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.1.1.1', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email: 'y@y.com', password: 'wrong' }),
     })
     expect(limited.status).toBe(429)
@@ -56,14 +72,14 @@ describe('Rate limiting', async () => {
     for (let i = 0; i < 11; i++) {
       await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.3.3.3' },
+        headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.3.3.3', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: `z${i}@z.com`, password: 'Password123', name: 'T' }),
       })
     }
     // IP B should still be allowed
     const res = await fetch('/api/auth/register', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.4.4.4' },
+      headers: { 'Content-Type': 'application/json', 'X-Forwarded-For': '10.4.4.4', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email: 'unique@unique.com', password: 'Password123', name: 'T' }),
     })
     expect(res.status).not.toBe(429)

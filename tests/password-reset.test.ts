@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { setup, $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { PrismaClient } from '@prisma/client'
 import { resolve } from 'path'
@@ -12,13 +12,29 @@ const prisma = new PrismaClient({ datasourceUrl: TEST_DB_URL })
 
 describe('Password Reset & Change API', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
       RATE_LIMIT_DISABLED: '1',
     },
+  })
+
+  // CSRF credentials — nuxt-security uses nuxt-csurf double-submit cookie pattern
+  let csrfToken = ''
+  let csrfCookie = ''
+  beforeAll(async () => {
+    const res = await fetch('/')
+    const html = await res.text()
+    csrfToken = html.match(/<meta name="csrf-token" content="([^"]+)"/)?.[1] ?? ''
+    const setCookie = res.headers.get('set-cookie') ?? ''
+    const cookieMatch = setCookie.match(/(?:^|,\s*)(?:__Host-)?csrf=([^;,]+)/)
+    const cookieName = setCookie.includes('__Host-csrf') ? '__Host-csrf' : 'csrf'
+    csrfCookie = `${cookieName}=${cookieMatch?.[1] ?? ''}`
   })
 
   beforeEach(async () => {
@@ -32,6 +48,7 @@ describe('Password Reset & Change API', async () => {
   async function register(email: string, password = 'Password123', name = 'Test User') {
     return $fetch<{ user: { id: number; email: string; name: string } }>('/api/auth/register', {
       method: 'POST',
+      headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: { email, password, name },
     })
   }
@@ -39,7 +56,7 @@ describe('Password Reset & Change API', async () => {
   async function loginGetCookie(email: string, password = 'Password123'): Promise<string> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email, password }),
     })
     const setCookie = res.headers.get('set-cookie') ?? ''
@@ -67,7 +84,7 @@ describe('Password Reset & Change API', async () => {
       await register('forgot@test.com')
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'forgot@test.com' }),
       })
       expect(res.status).toBe(200)
@@ -76,7 +93,7 @@ describe('Password Reset & Change API', async () => {
     it('returns 200 for non-existent email (no enumeration)', async () => {
       const res = await fetch('/api/auth/forgot-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'nobody@test.com' }),
       })
       expect(res.status).toBe(200)
@@ -88,6 +105,7 @@ describe('Password Reset & Change API', async () => {
 
       await $fetch('/api/auth/forgot-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { email: 'tokentest@test.com' },
       })
 
@@ -99,6 +117,7 @@ describe('Password Reset & Change API', async () => {
     it('returns 400 for invalid email format', async () => {
       const err: any = await $fetch('/api/auth/forgot-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { email: 'not-an-email' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -112,7 +131,7 @@ describe('Password Reset & Change API', async () => {
 
       const res = await fetch('/api/auth/reset-password', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ token: plainToken, newPassword: 'NewPass123' }),
       })
       expect(res.status).toBe(200)
@@ -120,7 +139,7 @@ describe('Password Reset & Change API', async () => {
       // Verify new password works
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'reset@test.com', password: 'NewPass123' }),
       })
       expect(loginRes.status).toBe(200)
@@ -132,6 +151,7 @@ describe('Password Reset & Change API', async () => {
 
       await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: plainToken, newPassword: 'NewPass123' },
       })
 
@@ -146,12 +166,14 @@ describe('Password Reset & Change API', async () => {
       // Use the token once
       await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: plainToken, newPassword: 'NewPass123' },
       })
 
       // Try to use it again
       const err: any = await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: plainToken, newPassword: 'AnotherPass456' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -174,6 +196,7 @@ describe('Password Reset & Change API', async () => {
 
       const err: any = await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: plainToken, newPassword: 'NewPass123' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -182,6 +205,7 @@ describe('Password Reset & Change API', async () => {
     it('rejects invalid token', async () => {
       const err: any = await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: 'invalidtoken', newPassword: 'NewPass123' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -193,6 +217,7 @@ describe('Password Reset & Change API', async () => {
 
       const err: any = await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: plainToken, newPassword: 'weak' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -204,7 +229,7 @@ describe('Password Reset & Change API', async () => {
 
       // Verify token works before reset
       const before = await $fetch<{ user: { email: string } }>('/api/auth/me', {
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
       expect(before.user.email).toBe('invalidatejwt@test.com')
 
@@ -212,12 +237,13 @@ describe('Password Reset & Change API', async () => {
       const plainToken = await createResetToken(result.user.id)
       await $fetch('/api/auth/reset-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { token: plainToken, newPassword: 'NewPass456' },
       })
 
       // Old token should now be rejected
       const err: any = await $fetch('/api/auth/me', {
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
     })
@@ -232,7 +258,8 @@ describe('Password Reset & Change API', async () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          cookie: `auth_token=${cookie}`,
+          'csrf-token': csrfToken,
+          cookie: `auth_token=${cookie}; ${csrfCookie}`,
         },
         body: JSON.stringify({ currentPassword: 'Password123', newPassword: 'NewPass456' }),
       })
@@ -241,7 +268,7 @@ describe('Password Reset & Change API', async () => {
       // Verify new password works for login
       const loginRes = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'changepw@test.com', password: 'NewPass456' }),
       })
       expect(loginRes.status).toBe(200)
@@ -253,7 +280,7 @@ describe('Password Reset & Change API', async () => {
 
       const err: any = await $fetch('/api/auth/change-password', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { currentPassword: 'WrongPass123', newPassword: 'NewPass456' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -262,6 +289,7 @@ describe('Password Reset & Change API', async () => {
     it('returns 401 when unauthenticated', async () => {
       const err: any = await $fetch('/api/auth/change-password', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { currentPassword: 'Password123', newPassword: 'NewPass456' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
@@ -273,7 +301,7 @@ describe('Password Reset & Change API', async () => {
 
       const err: any = await $fetch('/api/auth/change-password', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { currentPassword: 'Password123', newPassword: 'weak' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -285,20 +313,20 @@ describe('Password Reset & Change API', async () => {
 
       // Verify token works before change
       const before = await $fetch<{ user: { email: string } }>('/api/auth/me', {
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
       expect(before.user.email).toBe('invalidsession@test.com')
 
       // Change password
       await $fetch('/api/auth/change-password', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { currentPassword: 'Password123', newPassword: 'NewPass456' },
       })
 
       // Old token should now be rejected
       const err: any = await $fetch('/api/auth/me', {
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
     })

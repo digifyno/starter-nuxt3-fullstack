@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { setup, $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { PrismaClient } from '@prisma/client'
 import { resolve } from 'path'
@@ -11,13 +11,29 @@ const prisma = new PrismaClient({ datasourceUrl: TEST_DB_URL })
 
 describe('Tasks API', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
       RATE_LIMIT_DISABLED: '1',
     },
+  })
+
+  // CSRF credentials — nuxt-security uses nuxt-csurf double-submit cookie pattern
+  let csrfToken = ''
+  let csrfCookie = ''
+  beforeAll(async () => {
+    const res = await fetch('/')
+    const html = await res.text()
+    csrfToken = html.match(/<meta name="csrf-token" content="([^"]+)"/)?.[1] ?? ''
+    const setCookie = res.headers.get('set-cookie') ?? ''
+    const cookieMatch = setCookie.match(/(?:^|,\s*)(?:__Host-)?csrf=([^;,]+)/)
+    const cookieName = setCookie.includes('__Host-csrf') ? '__Host-csrf' : 'csrf'
+    csrfCookie = `${cookieName}=${cookieMatch?.[1] ?? ''}`
   })
 
   beforeEach(async () => {
@@ -28,11 +44,12 @@ describe('Tasks API', async () => {
   async function createUserAndGetCookie(email: string): Promise<string> {
     await $fetch('/api/auth/register', {
       method: 'POST',
+      headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: { email, password: 'Password123', name: 'Test User' },
     })
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email, password: 'Password123' }),
     })
     const setCookie = res.headers.get('set-cookie') ?? ''
@@ -44,7 +61,7 @@ describe('Tasks API', async () => {
     it('returns empty list for new user', async () => {
       const cookie = await createUserAndGetCookie('empty@test.com')
       const result = await $fetch<{ tasks: unknown[] }>('/api/tasks', {
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
       expect(result.tasks).toEqual([])
     })
@@ -55,24 +72,24 @@ describe('Tasks API', async () => {
 
       await $fetch('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie1}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie1}; ${csrfCookie}` },
         body: { title: 'User1 Task' },
       })
 
       await $fetch('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie2}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie2}; ${csrfCookie}` },
         body: { title: 'User2 Task' },
       })
 
       const result1 = await $fetch<{ tasks: Array<{ title: string }> }>('/api/tasks', {
-        headers: { cookie: `auth_token=${cookie1}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie1}; ${csrfCookie}` },
       })
       expect(result1.tasks).toHaveLength(1)
       expect(result1.tasks[0].title).toBe('User1 Task')
 
       const result2 = await $fetch<{ tasks: Array<{ title: string }> }>('/api/tasks', {
-        headers: { cookie: `auth_token=${cookie2}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie2}; ${csrfCookie}` },
       })
       expect(result2.tasks).toHaveLength(1)
       expect(result2.tasks[0].title).toBe('User2 Task')
@@ -84,7 +101,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('create@test.com')
       const result = await $fetch<{ task: { id: number; title: string } }>('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { title: 'My Task', description: 'Task description' },
       })
       expect(result.task.id).toBeDefined()
@@ -95,7 +112,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('notitle@test.com')
       const err = await $fetch('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { description: 'No title here' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -107,7 +124,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('update@test.com')
       const created = await $fetch<{ task: { id: number } }>('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { title: 'Original Title' },
       })
 
@@ -115,7 +132,7 @@ describe('Tasks API', async () => {
         `/api/tasks/${created.task.id}`,
         {
           method: 'PUT',
-          headers: { cookie: `auth_token=${cookie}` },
+          headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
           body: { title: 'Updated Title', completed: true },
         },
       )
@@ -130,13 +147,13 @@ describe('Tasks API', async () => {
 
       const created = await $fetch<{ task: { id: number } }>('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie1}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie1}; ${csrfCookie}` },
         body: { title: 'Owner Task' },
       })
 
       const err = await $fetch(`/api/tasks/${created.task.id}`, {
         method: 'PUT',
-        headers: { cookie: `auth_token=${cookie2}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie2}; ${csrfCookie}` },
         body: { title: 'Hijack' },
       }).catch((e) => e)
 
@@ -149,17 +166,17 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('delete@test.com')
       const created = await $fetch<{ task: { id: number } }>('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
         body: { title: 'To Delete' },
       })
 
       await $fetch(`/api/tasks/${created.task.id}`, {
         method: 'DELETE',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
 
       const tasks = await $fetch<{ tasks: unknown[] }>('/api/tasks', {
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
       expect(tasks.tasks).toHaveLength(0)
     })
@@ -170,13 +187,13 @@ describe('Tasks API', async () => {
 
       const created = await $fetch<{ task: { id: number } }>('/api/tasks', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie1}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie1}; ${csrfCookie}` },
         body: { title: 'Protected Task' },
       })
 
       const err = await $fetch(`/api/tasks/${created.task.id}`, {
         method: 'DELETE',
-        headers: { cookie: `auth_token=${cookie2}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie2}; ${csrfCookie}` },
       }).catch((e) => e)
 
       expect(err.response?.status).toBe(404)
@@ -188,7 +205,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('page0@test.com')
       const result = await $fetch<{ tasks: unknown[]; pagination: { page: number } }>(
         '/api/tasks?page=0',
-        { headers: { cookie: `auth_token=${cookie}` } },
+        { headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` } },
       )
       expect(result.pagination.page).toBe(1)
     })
@@ -197,7 +214,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('limit0@test.com')
       const result = await $fetch<{ tasks: unknown[]; pagination: { limit: number } }>(
         '/api/tasks?limit=0',
-        { headers: { cookie: `auth_token=${cookie}` } },
+        { headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` } },
       )
       expect(result.pagination.limit).toBe(20)
     })
@@ -206,7 +223,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('limit101@test.com')
       const result = await $fetch<{ tasks: unknown[]; pagination: { limit: number } }>(
         '/api/tasks?limit=101',
-        { headers: { cookie: `auth_token=${cookie}` } },
+        { headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` } },
       )
       expect(result.pagination.limit).toBe(100)
     })
@@ -215,7 +232,7 @@ describe('Tasks API', async () => {
       const cookie = await createUserAndGetCookie('beyondpage@test.com')
       const result = await $fetch<{ tasks: unknown[]; pagination: { total: number } }>(
         '/api/tasks?page=999',
-        { headers: { cookie: `auth_token=${cookie}` } },
+        { headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` } },
       )
       expect(result.tasks).toEqual([])
       expect(result.pagination.total).toBe(0)

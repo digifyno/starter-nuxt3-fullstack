@@ -8,8 +8,11 @@ const TEST_DB_URL = `file:${TEST_DB_PATH}`
 
 describe('Security headers', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
@@ -44,6 +47,9 @@ describe('Security headers', async () => {
 
   it('sets Permissions-Policy header', async () => {
     const res = await fetch('/')
-    expect(res.headers.get('permissions-policy')).toBe('camera=(), microphone=(), geolocation=()')
+    const policy = res.headers.get('permissions-policy') ?? ''
+    expect(policy).toContain('camera=()')
+    expect(policy).toContain('microphone=()')
+    expect(policy).toContain('geolocation=()')
   })
 })

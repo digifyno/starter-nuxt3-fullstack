@@ -8,8 +8,11 @@ const TEST_DB_URL = `file:${TEST_DB_PATH}`
 
 describe('Content-Security-Policy', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
@@ -41,7 +44,7 @@ describe('Content-Security-Policy', async () => {
   it('includes a nonce in script-src', async () => {
     const res = await fetch('/')
     const csp = res.headers.get('content-security-policy') ?? ''
-    const scriptSrc = csp.split(';').find((d) => d.trim().startsWith('script-src'))
+    const scriptSrc = csp.split(';').find((d) => d.trim().startsWith('script-src '))
     expect(scriptSrc).toMatch(/'nonce-[A-Za-z0-9+/]+=*'/)
   })
 

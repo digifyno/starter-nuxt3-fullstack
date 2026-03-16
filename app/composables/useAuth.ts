@@ -31,7 +31,8 @@ async function fetchWithRefresh(url: string, options: Record<string, unknown> = 
     const status = err?.status ?? (err?.response as Record<string, unknown>)?.status
     if (status === 401) {
       try {
-        await $fetch('/api/auth/refresh', { method: 'POST' })
+        const { $csrfFetch } = useNuxtApp()
+        await ($csrfFetch as (url: string, opts?: unknown) => Promise<unknown>)('/api/auth/refresh', { method: 'POST' })
         return await ($fetch as (url: string, opts?: unknown) => Promise<unknown>)(url, options)
       } catch {
         throw e
@@ -59,7 +60,8 @@ export function useAuth() {
 
   async function login(email: string, password: string) {
     try {
-      const data = await $fetch<{ user: User }>('/api/auth/login', {
+      const { $csrfFetch } = useNuxtApp()
+      const data = await ($csrfFetch as (url: string, opts?: unknown) => Promise<{ user: User }>)('/api/auth/login', {
         method: 'POST',
         body: { email, password },
       })
@@ -72,7 +74,8 @@ export function useAuth() {
 
   async function register(email: string, name: string, password: string) {
     try {
-      const data = await $fetch<{ user: User }>('/api/auth/register', {
+      const { $csrfFetch } = useNuxtApp()
+      const data = await ($csrfFetch as (url: string, opts?: unknown) => Promise<{ user: User }>)('/api/auth/register', {
         method: 'POST',
         body: { email, name, password },
       })
@@ -85,7 +88,8 @@ export function useAuth() {
 
   async function logout() {
     try {
-      await $fetch('/api/auth/logout', { method: 'POST' })
+      const { $csrfFetch } = useNuxtApp()
+      await ($csrfFetch as (url: string, opts?: unknown) => Promise<unknown>)('/api/auth/logout', { method: 'POST' })
     } catch {
       // ignore logout errors; proceed to clear local state
     } finally {

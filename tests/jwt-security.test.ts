@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { setup, $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { PrismaClient } from '@prisma/client'
 import { resolve } from 'path'
@@ -13,13 +13,29 @@ const prisma = new PrismaClient({ datasourceUrl: TEST_DB_URL })
 
 describe('JWT Security', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: JWT_SECRET,
       RATE_LIMIT_DISABLED: '1',
     },
+  })
+
+  // CSRF credentials — nuxt-security uses nuxt-csurf double-submit cookie pattern
+  let csrfToken = ''
+  let csrfCookie = ''
+  beforeAll(async () => {
+    const res = await fetch('/')
+    const html = await res.text()
+    csrfToken = html.match(/<meta name="csrf-token" content="([^"]+)"/)?.[1] ?? ''
+    const setCookie = res.headers.get('set-cookie') ?? ''
+    const cookieMatch = setCookie.match(/(?:^|,\s*)(?:__Host-)?csrf=([^;,]+)/)
+    const cookieName = setCookie.includes('__Host-csrf') ? '__Host-csrf' : 'csrf'
+    csrfCookie = `${cookieName}=${cookieMatch?.[1] ?? ''}`
   })
 
   beforeEach(async () => {
@@ -32,6 +48,7 @@ describe('JWT Security', async () => {
   async function register(email: string) {
     return $fetch('/api/auth/register', {
       method: 'POST',
+      headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: { email, password: 'Password123', name: 'Test User' },
     })
   }
@@ -39,7 +56,7 @@ describe('JWT Security', async () => {
   async function loginGetCookie(email: string): Promise<string> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email, password: 'Password123' }),
     })
     const setCookie = res.headers.get('set-cookie') ?? ''
@@ -108,7 +125,7 @@ describe('JWT Security', async () => {
     // Logout — server adds jti to blocklist
     await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: { cookie: `auth_token=${token}` },
+      headers: { 'csrf-token': csrfToken, cookie: `auth_token=${token}; ${csrfCookie}` },
     })
 
     // Same token must now be rejected
@@ -124,13 +141,13 @@ describe('JWT Security', async () => {
 
     const first = await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: { cookie: `auth_token=${token}` },
+      headers: { 'csrf-token': csrfToken, cookie: `auth_token=${token}; ${csrfCookie}` },
     })
     expect(first.status).toBe(200)
 
     const second = await fetch('/api/auth/logout', {
       method: 'POST',
-      headers: { cookie: `auth_token=${token}` },
+      headers: { 'csrf-token': csrfToken, cookie: `auth_token=${token}; ${csrfCookie}` },
     })
     expect(second.status).toBe(200)
   })
@@ -160,7 +177,7 @@ describe('JWT Security', async () => {
     // Create a task (no Origin header — allowed)
     const taskRes = await $fetch<{ task: { id: number } }>('/api/tasks', {
       method: 'POST',
-      headers: { cookie: `auth_token=${token}` },
+      headers: { 'csrf-token': csrfToken, cookie: `auth_token=${token}; ${csrfCookie}` },
       body: { title: 'Task to delete' },
     })
 

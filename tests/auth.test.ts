@@ -1,5 +1,5 @@
 // @vitest-environment node
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach } from 'vitest'
 import { setup, $fetch, fetch } from '@nuxt/test-utils/e2e'
 import { PrismaClient } from '@prisma/client'
 import { resolve } from 'path'
@@ -11,13 +11,30 @@ const prisma = new PrismaClient({ datasourceUrl: TEST_DB_URL })
 
 describe('Auth API', async () => {
   await setup({
-    build: true,
+    build: false,
     server: true,
+    nuxtConfig: {
+      nitro: { output: { dir: resolve(process.cwd(), 'dist') } },
+    },
     env: {
       DATABASE_URL: TEST_DB_URL,
       NUXT_JWT_SECRET: 'test-jwt-secret-for-testing-minimum-32chars',
       RATE_LIMIT_DISABLED: '1',
     },
+  })
+
+  // CSRF credentials — fetched once after the server starts (nuxt-security uses nuxt-csurf
+  // double-submit cookie pattern: GET any page to receive the cookie + meta token)
+  let csrfToken = ''
+  let csrfCookie = ''
+  beforeAll(async () => {
+    const res = await fetch('/')
+    const html = await res.text()
+    csrfToken = html.match(/<meta name="csrf-token" content="([^"]+)"/)?.[1] ?? ''
+    const setCookie = res.headers.get('set-cookie') ?? ''
+    const cookieMatch = setCookie.match(/(?:^|,\s*)(?:__Host-)?csrf=([^;,]+)/)
+    const cookieName = setCookie.includes('__Host-csrf') ? '__Host-csrf' : 'csrf'
+    csrfCookie = `${cookieName}=${cookieMatch?.[1] ?? ''}`
   })
 
   beforeEach(async () => {
@@ -30,6 +47,7 @@ describe('Auth API', async () => {
   async function register(email: string, password = 'Password123', name = 'Test User') {
     return $fetch<{ user: { id: number; email: string; name: string } }>('/api/auth/register', {
       method: 'POST',
+      headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: { email, password, name },
     })
   }
@@ -37,7 +55,7 @@ describe('Auth API', async () => {
   async function loginGetCookie(email: string, password = 'Password123'): Promise<string> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email, password }),
     })
     const setCookie = res.headers.get('set-cookie') ?? ''
@@ -48,7 +66,7 @@ describe('Auth API', async () => {
   async function loginGetRefreshCookie(email: string, password = 'Password123'): Promise<string> {
     const res = await fetch('/api/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
       body: JSON.stringify({ email, password }),
     })
     const setCookieHeader = res.headers.get('set-cookie') ?? ''
@@ -67,6 +85,7 @@ describe('Auth API', async () => {
       await register('dup@test.com')
       const err = await $fetch('/api/auth/register', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { email: 'dup@test.com', password: 'Password123', name: 'Dup' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(409)
@@ -75,6 +94,7 @@ describe('Auth API', async () => {
     it('returns 400 with validation message for short password', async () => {
       const err = await $fetch('/api/auth/register', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { email: 'short@test.com', password: '12', name: 'Test' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(400)
@@ -83,7 +103,7 @@ describe('Auth API', async () => {
     it('sets auth_token httpOnly cookie on register', async () => {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'regcookie@test.com', password: 'Password123', name: 'Test' }),
       })
       expect(res.status).toBe(200)
@@ -95,7 +115,7 @@ describe('Auth API', async () => {
     it('sets refresh_token httpOnly cookie on register', async () => {
       const res = await fetch('/api/auth/register', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'regrefresh@test.com', password: 'Password123', name: 'Test' }),
       })
       expect(res.status).toBe(200)
@@ -110,7 +130,7 @@ describe('Auth API', async () => {
       await register('login@test.com')
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'login@test.com', password: 'Password123' }),
       })
       expect(res.status).toBe(200)
@@ -123,7 +143,7 @@ describe('Auth API', async () => {
       await register('loginrefresh@test.com')
       const res = await fetch('/api/auth/login', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: JSON.stringify({ email: 'loginrefresh@test.com', password: 'Password123' }),
       })
       expect(res.status).toBe(200)
@@ -136,6 +156,7 @@ describe('Auth API', async () => {
       await register('wrongpw@test.com')
       const err = await $fetch('/api/auth/login', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { email: 'wrongpw@test.com', password: 'wrongpass' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
@@ -144,6 +165,7 @@ describe('Auth API', async () => {
     it('returns 401 for unknown email (no enumeration)', async () => {
       const err = await $fetch('/api/auth/login', {
         method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
         body: { email: 'unknown@test.com', password: 'Password123' },
       }).catch((e) => e)
       expect(err.response?.status).toBe(401)
@@ -157,6 +179,7 @@ describe('Auth API', async () => {
         for (let i = 0; i < 5; i++) {
           await $fetch('/api/auth/login', {
             method: 'POST',
+            headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
             body: { email: 'lockout@test.com', password: 'wrongpass' },
           }).catch(() => {})
         }
@@ -164,7 +187,7 @@ describe('Auth API', async () => {
         // 6th attempt should return 429
         const err = await fetch('/api/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
           body: JSON.stringify({ email: 'lockout@test.com', password: 'wrongpass' }),
         })
         expect(err.status).toBe(429)
@@ -178,6 +201,7 @@ describe('Auth API', async () => {
         for (let i = 0; i < 4; i++) {
           await $fetch('/api/auth/login', {
             method: 'POST',
+            headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
             body: { email: 'reset@test.com', password: 'wrongpass' },
           }).catch(() => {})
         }
@@ -185,7 +209,7 @@ describe('Auth API', async () => {
         // Successful login resets counter
         const res = await fetch('/api/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
           body: JSON.stringify({ email: 'reset@test.com', password: 'Password123' }),
         })
         expect(res.status).toBe(200)
@@ -194,6 +218,7 @@ describe('Auth API', async () => {
         for (let i = 0; i < 4; i++) {
           await $fetch('/api/auth/login', {
             method: 'POST',
+            headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
             body: { email: 'reset@test.com', password: 'wrongpass' },
           }).catch(() => {})
         }
@@ -201,7 +226,7 @@ describe('Auth API', async () => {
         // 5th attempt after reset: still below threshold (only 4 new failures), should get 401
         const afterReset = await fetch('/api/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
           body: JSON.stringify({ email: 'reset@test.com', password: 'wrongpass' }),
         })
         expect(afterReset.status).toBe(401)
@@ -228,7 +253,7 @@ describe('Auth API', async () => {
         // Login should succeed (lockout has expired)
         const res = await fetch('/api/auth/login', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 'Content-Type': 'application/json', 'csrf-token': csrfToken, Cookie: csrfCookie },
           body: JSON.stringify({ email: 'expired@test.com', password: 'Password123' }),
         })
         expect(res.status).toBe(200)
@@ -258,7 +283,7 @@ describe('Auth API', async () => {
       const cookie = await loginGetCookie('logout@test.com')
       const res = await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
       expect(res.status).toBe(200)
       const setCookie = res.headers.get('set-cookie') ?? ''
@@ -271,7 +296,7 @@ describe('Auth API', async () => {
       const refreshCookie = await loginGetRefreshCookie('logoutrefresh@test.com')
       const res = await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { cookie: `refresh_token=${refreshCookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `refresh_token=${refreshCookie}; ${csrfCookie}` },
       })
       expect(res.status).toBe(200)
       const setCookie = res.headers.get('set-cookie') ?? ''
@@ -291,7 +316,7 @@ describe('Auth API', async () => {
       // Logout (server adds token to blocklist)
       await fetch('/api/auth/logout', {
         method: 'POST',
-        headers: { cookie: `auth_token=${cookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `auth_token=${cookie}; ${csrfCookie}` },
       })
 
       // Old token should now be rejected
@@ -302,7 +327,10 @@ describe('Auth API', async () => {
     })
 
     it('logout succeeds when cookie is missing', async () => {
-      const res = await fetch('/api/auth/logout', { method: 'POST' })
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
+      })
       expect(res.status).toBe(200)
     })
   })
@@ -314,7 +342,7 @@ describe('Auth API', async () => {
 
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
-        headers: { cookie: `refresh_token=${refreshCookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `refresh_token=${refreshCookie}; ${csrfCookie}` },
       })
       expect(res.status).toBe(200)
       const setCookie = res.headers.get('set-cookie') ?? ''
@@ -331,7 +359,7 @@ describe('Auth API', async () => {
 
       const refreshRes = await fetch('/api/auth/refresh', {
         method: 'POST',
-        headers: { cookie: `refresh_token=${refreshCookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `refresh_token=${refreshCookie}; ${csrfCookie}` },
       })
       expect(refreshRes.status).toBe(200)
       const setCookie = refreshRes.headers.get('set-cookie') ?? ''
@@ -346,14 +374,17 @@ describe('Auth API', async () => {
     })
 
     it('returns 401 when no refresh_token cookie is present', async () => {
-      const res = await fetch('/api/auth/refresh', { method: 'POST' })
+      const res = await fetch('/api/auth/refresh', {
+        method: 'POST',
+        headers: { 'csrf-token': csrfToken, Cookie: csrfCookie },
+      })
       expect(res.status).toBe(401)
     })
 
     it('returns 401 when refresh_token is invalid', async () => {
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
-        headers: { cookie: 'refresh_token=invalid.token.here' },
+        headers: { 'csrf-token': csrfToken, cookie: `refresh_token=invalid.token.here; ${csrfCookie}` },
       })
       expect(res.status).toBe(401)
     })
@@ -364,7 +395,7 @@ describe('Auth API', async () => {
 
       const res = await fetch('/api/auth/refresh', {
         method: 'POST',
-        headers: { cookie: `refresh_token=${accessCookie}` },
+        headers: { 'csrf-token': csrfToken, cookie: `refresh_token=${accessCookie}; ${csrfCookie}` },
       })
       expect(res.status).toBe(401)
     })
