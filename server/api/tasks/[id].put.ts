@@ -27,7 +27,7 @@ export default defineEventHandler(async (event) => {
   if (!parsed.success) {
     throw createError({
       statusCode: 400,
-      statusMessage: parsed.error.errors.at(0)?.message ?? 'Validation failed',
+      statusMessage: parsed.error.issues.at(0)?.message ?? 'Validation failed',
     })
   }
 
