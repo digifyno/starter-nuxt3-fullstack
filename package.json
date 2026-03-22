@@ -16,7 +16,7 @@
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
     "format": "prettier --write .",
-    "pretest": "npm run build",
+    "pretest": "test -f dist/server/index.mjs || npm run build",
     "test": "vitest",
     "audit:security": "npm audit --audit-level=high"
   },
