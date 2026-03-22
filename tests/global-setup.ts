@@ -12,7 +12,7 @@ export function setup() {
   }
 
   // Push schema to the fresh empty database
-  execSync('npx prisma db push --skip-generate', {
+  execSync('node_modules/.bin/prisma db push --skip-generate', {
     env: {
       ...process.env,
       DATABASE_URL: TEST_DB_URL,
